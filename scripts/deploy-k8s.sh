@@ -245,6 +245,23 @@ test_cloudsql_proxy_connection() {
         fi
     done
     
+    # Install psycopg2 if not available
+    echo -e "${YELLOW}🔍 Checking Python dependencies...${NC}"
+    if ! python3 -c "import psycopg2" 2>/dev/null; then
+        echo -e "${YELLOW}📦 Installing psycopg2...${NC}"
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y python3-psycopg2
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y python3-psycopg2
+        elif command -v pip3 &> /dev/null; then
+            pip3 install psycopg2-binary
+        else
+            echo -e "${RED}❌ Cannot install psycopg2. Please install manually.${NC}"
+            kill $PROXY_PID 2>/dev/null
+            return 1
+        fi
+    fi
+    
     # Test with verbose error output
     if python3 -c "
 import psycopg2
@@ -400,6 +417,22 @@ test_cloudsql_connection() {
     
     # Fallback to Python test
     echo -e "${YELLOW}🔍 Testing with Python...${NC}"
+    
+    # Install psycopg2 if not available
+    if ! python3 -c "import psycopg2" 2>/dev/null; then
+        echo -e "${YELLOW}📦 Installing psycopg2...${NC}"
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y python3-psycopg2
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y python3-psycopg2
+        elif command -v pip3 &> /dev/null; then
+            pip3 install psycopg2-binary
+        else
+            echo -e "${RED}❌ Cannot install psycopg2. Please install manually.${NC}"
+            return 1
+        fi
+    fi
+    
     if python3 -c "
 import psycopg2
 import sys
