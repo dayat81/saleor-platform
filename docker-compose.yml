@@ -20,13 +20,16 @@ services:
       - backend.env
     environment:
       - DASHBOARD_URL=http://localhost:9000/
-      - ALLOWED_HOSTS=localhost,api
+      - ALLOWED_HOSTS=localhost,api,192.168.18.144
+      - ALLOWED_CLIENT_HOSTS=localhost,192.168.18.144
 
   dashboard:
     image: ghcr.io/saleor/saleor-dashboard:latest
     ports:
       - 9000:80
     restart: unless-stopped
+    environment:
+      - API_URL=http://192.168.18.144:8000/graphql/
 
   db:
     image: library/postgres:15-alpine
