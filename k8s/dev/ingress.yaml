@@ -1,0 +1,69 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: saleor-ingress
+  namespace: saleor-dev
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "saleor-dev-ip"
+    networking.gke.io/managed-certificates: "saleor-dev-cert"
+    kubernetes.io/ingress.allow-http: "true"
+spec:
+  rules:
+  - host: api-dev.saleor.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-api
+            port:
+              number: 8000
+  - host: dashboard-dev.saleor.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-dashboard
+            port:
+              number: 80
+  - host: storefront-dev.saleor.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-storefront
+            port:
+              number: 3000
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: saleor-dev-cert
+  namespace: saleor-dev
+spec:
+  domains:
+    - api-dev.saleor.example.com
+    - dashboard-dev.saleor.example.com
+    - storefront-dev.saleor.example.com
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-ingress-service
+  namespace: saleor-dev
+  annotations:
+    cloud.google.com/load-balancer-type: "External"
+spec:
+  type: LoadBalancer
+  selector:
+    app: saleor-api
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP

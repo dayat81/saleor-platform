@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-api
+  namespace: saleor-dev
+  labels:
+    app: saleor-api
+    environment: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: saleor-api
+  template:
+    metadata:
+      labels:
+        app: saleor-api
+        environment: dev
+    spec:
+      containers:
+      - name: saleor-api
+        image: ghcr.io/saleor/saleor:3.15
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: saleor-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: saleor-secrets
+              key: REDIS_URL
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: saleor-secrets
+              key: SECRET_KEY
+        - name: DEFAULT_CHANNEL_SLUG
+          valueFrom:
+            configMapKeyRef:
+              name: saleor-config
+              key: DEFAULT_CHANNEL_SLUG
+        - name: HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS
+          valueFrom:
+            configMapKeyRef:
+              name: saleor-config
+              key: HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS
+        - name: HTTP_IP_FILTER_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: saleor-config
+              key: HTTP_IP_FILTER_ENABLED
+        - name: DEFAULT_FROM_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: saleor-config
+              key: DEFAULT_FROM_EMAIL
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: saleor-config
+              key: DEBUG
+        - name: ALLOWED_HOSTS
+          valueFrom:
+            configMapKeyRef:
+              name: saleor-config
+              key: ALLOWED_HOSTS
+        - name: STOREFRONT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: saleor-config
+              key: STOREFRONT_URL
+        - name: DASHBOARD_URL
+          valueFrom:
+            configMapKeyRef:
+              name: saleor-config
+              key: DASHBOARD_URL
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: media-storage
+          mountPath: /app/media
+      volumes:
+      - name: media-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-api
+  namespace: saleor-dev
+  labels:
+    app: saleor-api
+spec:
+  selector:
+    app: saleor-api
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP

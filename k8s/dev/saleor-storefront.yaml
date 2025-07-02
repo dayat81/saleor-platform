@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-storefront
+  namespace: saleor-dev
+  labels:
+    app: saleor-storefront
+    environment: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: saleor-storefront
+  template:
+    metadata:
+      labels:
+        app: saleor-storefront
+        environment: dev
+    spec:
+      containers:
+      - name: saleor-storefront
+        image: node:18-alpine
+        command: ["/bin/sh"]
+        args: ["-c", "cd /app && npm install && npm run dev"]
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_API_URI
+          value: "http://saleor-api:8000/graphql/"
+        - name: NODE_ENV
+          value: "development"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: storefront-code
+          mountPath: /app
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: storefront-code
+        configMap:
+          name: storefront-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-storefront
+  namespace: saleor-dev
+  labels:
+    app: saleor-storefront
+spec:
+  selector:
+    app: saleor-storefront
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storefront-config
+  namespace: saleor-dev
+data:
+  package.json: |
+    {
+      "name": "saleor-storefront",
+      "version": "1.0.0",
+      "scripts": {
+        "dev": "next dev -H 0.0.0.0",
+        "build": "next build",
+        "start": "next start"
+      },
+      "dependencies": {
+        "next": "13.4.0",
+        "react": "18.2.0",
+        "react-dom": "18.2.0",
+        "@apollo/client": "^3.7.0",
+        "graphql": "^16.6.0"
+      },
+      "devDependencies": {
+        "@types/node": "20.2.0",
+        "@types/react": "18.2.0",
+        "@types/react-dom": "18.2.0",
+        "typescript": "5.0.0"
+      }
+    }

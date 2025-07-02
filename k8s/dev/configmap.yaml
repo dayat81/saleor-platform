@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: saleor-config
+  namespace: saleor-dev
+data:
+  DEFAULT_CHANNEL_SLUG: "default-channel"
+  HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS: "True"
+  HTTP_IP_FILTER_ENABLED: "False"
+  DEFAULT_FROM_EMAIL: "noreply@saleor-dev.example.com"
+  OTEL_SERVICE_NAME: "saleor"
+  OTEL_TRACES_EXPORTER: "otlp"
+  ALLOWED_HOSTS: "*"
+  DEBUG: "True"
+  ENABLE_SSL: "False"
+  USE_TZ: "True"
+  TIME_ZONE: "Asia/Jakarta"
+  LANGUAGE_CODE: "en"
+  STOREFRONT_URL: "http://localhost:3000"
+  DASHBOARD_URL: "http://localhost:9000"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-config
+  namespace: saleor-dev
+data:
+  API_URI: "http://saleor-api:8000/graphql/"
+  APP_MOUNT_URI: "/"
