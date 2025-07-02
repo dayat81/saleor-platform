@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Repository Overview
-
+sudo password is admin
 Saleor Platform is a Docker Compose-based orchestration environment for local development of the Saleor e-commerce ecosystem. It coordinates multiple services including the Core API, Dashboard, databases, cache, and development tools.
 
 ## Essential Commands
