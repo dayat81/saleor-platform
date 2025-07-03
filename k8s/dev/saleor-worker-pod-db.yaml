@@ -18,33 +18,13 @@ spec:
         environment: dev
     spec:
       containers:
-      - name: cloud-sql-proxy
-        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
-        args:
-          - "--port=5432"
-          - "--structured-logs"
-          - "saleor-platform-dev:asia-southeast2:saleor-db-dev"
-        securityContext:
-          runAsNonRoot: true
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
       - name: saleor-worker
         image: ghcr.io/saleor/saleor:3.15
         command: ["celery"]
         args: ["-A", "saleor", "worker", "--loglevel=info", "--without-gossip"]
         env:
         - name: DATABASE_URL
-          value: "postgres://saleor:$(DB_PASSWORD)@127.0.0.1:5432/saleor"
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: saleor-secrets
-              key: DB_PASSWORD
+          value: "postgres://saleor:saleor123@postgresql:5432/saleor"
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:
@@ -99,33 +79,13 @@ spec:
         environment: dev
     spec:
       containers:
-      - name: cloud-sql-proxy
-        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
-        args:
-          - "--port=5432"
-          - "--structured-logs"
-          - "saleor-platform-dev:asia-southeast2:saleor-db-dev"
-        securityContext:
-          runAsNonRoot: true
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
       - name: saleor-beat
         image: ghcr.io/saleor/saleor:3.15
         command: ["celery"]
         args: ["-A", "saleor", "beat", "--loglevel=info"]
         env:
         - name: DATABASE_URL
-          value: "postgres://saleor:$(DB_PASSWORD)@127.0.0.1:5432/saleor"
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: saleor-secrets
-              key: DB_PASSWORD
+          value: "postgres://saleor:saleor123@postgresql:5432/saleor"
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:

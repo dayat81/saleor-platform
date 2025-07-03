@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-proxy-config
+  namespace: saleor-dev
+data:
+  default.conf: |
+    upstream saleor_api {
+        server saleor-api:8000;
+    }
+    
+    upstream saleor_dashboard {
+        server saleor-dashboard:80;
+    }
+    
+    server {
+        listen 80;
+        server_name dashboard-dev.aksa.ai;
+        
+        # Handle preflight requests
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' 'http://dashboard-dev.aksa.ai';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+        
+        # API endpoints
+        location /graphql/ {
+            add_header 'Access-Control-Allow-Origin' 'http://dashboard-dev.aksa.ai' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+            
+            proxy_pass http://saleor_api/graphql/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Health endpoint for API
+        location /health/ {
+            proxy_pass http://saleor_api/health/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Dashboard static files and app
+        location / {
+            proxy_pass http://saleor_dashboard/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # Special handling for JavaScript files to replace localhost references
+            location ~* \.(js)$ {
+                proxy_pass http://saleor_dashboard;
+                proxy_set_header Host $host;
+                sub_filter 'http://localhost:8000' 'http://dashboard-dev.aksa.ai';
+                sub_filter_once off;
+                sub_filter_types application/javascript text/javascript;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-proxy
+  namespace: saleor-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard-proxy
+  template:
+    metadata:
+      labels:
+        app: dashboard-proxy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-proxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-proxy
+  namespace: saleor-dev
+spec:
+  selector:
+    app: dashboard-proxy
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

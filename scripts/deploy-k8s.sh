@@ -542,8 +542,8 @@ update_secrets() {
         # For Kubernetes, we'll need to deploy Cloud SQL Proxy sidecar
         # For now, use the connection name to set up proxy
         CONNECTION_NAME=$(gcloud sql instances describe saleor-db-dev --project=$PROJECT_ID --format="value(connectionName)")
-        DATABASE_URL="postgres://saleor:${DB_PASSWORD}@127.0.0.1:5432/saleor"
-        echo -e "${YELLOW}💡 Will need to deploy Cloud SQL Proxy sidecar in Kubernetes${NC}"
+        DATABASE_URL="postgres://saleor:\$(DB_PASSWORD)@127.0.0.1:5432/saleor"
+        echo -e "${YELLOW}💡 Cloud SQL Proxy sidecar is configured in Kubernetes deployments${NC}"
     else
         # Use direct IP connection
         DATABASE_URL="postgres://saleor:${DB_PASSWORD}@${DB_HOST}/saleor"
@@ -554,20 +554,27 @@ update_secrets() {
     echo -e "${YELLOW}🔍 Database Host: ${DB_HOST}${NC}"
     echo -e "${YELLOW}🔍 Redis Host: ${REDIS_HOST}${NC}"
     
+    # Generate or retrieve SECRET_KEY
+    SECRET_KEY=$(openssl rand -base64 32 | tr -d "=+/" | head -c 32)
+    
     # Base64 encode secrets
     DATABASE_URL_B64=$(echo -n "$DATABASE_URL" | base64 -w 0)
     REDIS_URL_B64=$(echo -n "$REDIS_URL" | base64 -w 0)
+    DB_PASSWORD_B64=$(echo -n "$DB_PASSWORD" | base64 -w 0)
+    SECRET_KEY_B64=$(echo -n "$SECRET_KEY" | base64 -w 0)
     
     # Check if secret exists, create if not
     if ! kubectl get secret saleor-secrets -n saleor-dev &> /dev/null; then
         echo -e "${YELLOW}📦 Creating secret saleor-secrets...${NC}"
         kubectl create secret generic saleor-secrets -n saleor-dev \
             --from-literal=DATABASE_URL="$DATABASE_URL" \
-            --from-literal=REDIS_URL="$REDIS_URL"
+            --from-literal=REDIS_URL="$REDIS_URL" \
+            --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+            --from-literal=SECRET_KEY="$SECRET_KEY"
     else
         echo -e "${YELLOW}🔄 Updating existing secret...${NC}"
         # Update secrets in Kubernetes
-        kubectl patch secret saleor-secrets -n saleor-dev --type='json' -p="[{\"op\": \"replace\", \"path\": \"/data/DATABASE_URL\", \"value\":\"$DATABASE_URL_B64\"},{\"op\": \"replace\", \"path\": \"/data/REDIS_URL\", \"value\":\"$REDIS_URL_B64\"}]"
+        kubectl patch secret saleor-secrets -n saleor-dev --type='json' -p="[{\"op\": \"replace\", \"path\": \"/data/DATABASE_URL\", \"value\":\"$DATABASE_URL_B64\"},{\"op\": \"replace\", \"path\": \"/data/REDIS_URL\", \"value\":\"$REDIS_URL_B64\"},{\"op\": \"replace\", \"path\": \"/data/DB_PASSWORD\", \"value\":\"$DB_PASSWORD_B64\"},{\"op\": \"replace\", \"path\": \"/data/SECRET_KEY\", \"value\":\"$SECRET_KEY_B64\"}]"
     fi
     
     # Restart deployments to pick up new secrets

@@ -10,7 +10,7 @@ metadata:
     kubernetes.io/ingress.allow-http: "true"
 spec:
   rules:
-  - host: api-dev.saleor.example.com
+  - host: api-dev.aksa.ai
     http:
       paths:
       - path: /
@@ -20,7 +20,7 @@ spec:
             name: saleor-api
             port:
               number: 8000
-  - host: dashboard-dev.saleor.example.com
+  - host: dashboard-dev.aksa.ai
     http:
       paths:
       - path: /
@@ -30,7 +30,7 @@ spec:
             name: saleor-dashboard
             port:
               number: 80
-  - host: storefront-dev.saleor.example.com
+  - host: storefront-dev.aksa.ai
     http:
       paths:
       - path: /
@@ -48,9 +48,9 @@ metadata:
   namespace: saleor-dev
 spec:
   domains:
-    - api-dev.saleor.example.com
-    - dashboard-dev.saleor.example.com
-    - storefront-dev.saleor.example.com
+    - api-dev.aksa.ai
+    - dashboard-dev.aksa.ai
+    - storefront-dev.aksa.ai
 ---
 apiVersion: v1
 kind: Service
