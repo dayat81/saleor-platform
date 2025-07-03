@@ -23,21 +23,56 @@ spec:
   - host: dashboard-dev.aksa.ai
     http:
       paths:
+      - path: /graphql/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-api
+            port:
+              number: 8000
+      - path: /health/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-api
+            port:
+              number: 8000
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: saleor-dashboard
+            name: saleor-dashboard-cors-fixed
             port:
               number: 80
   - host: storefront-dev.aksa.ai
     http:
       paths:
+      - path: /api/auth/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-storefront-fixed
+            port:
+              number: 3000
+      - path: /graphql/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-api
+            port:
+              number: 8000
+      - path: /health/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-api
+            port:
+              number: 8000
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: saleor-storefront
+            name: saleor-storefront-fixed
             port:
               number: 3000
 ---

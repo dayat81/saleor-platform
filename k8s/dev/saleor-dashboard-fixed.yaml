@@ -1,0 +1,187 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-config-fixed
+  namespace: saleor-dev
+data:
+  API_URI: "http://dashboard-dev.aksa.ai/graphql/"
+  APP_MOUNT_URI: "/"
+  DASHBOARD_URL: "http://dashboard-dev.aksa.ai"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-dashboard-fixed
+  namespace: saleor-dev
+  labels:
+    app: saleor-dashboard-fixed
+    environment: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: saleor-dashboard-fixed
+  template:
+    metadata:
+      labels:
+        app: saleor-dashboard-fixed
+        environment: dev
+    spec:
+      initContainers:
+      - name: fix-api-url
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          # Copy dashboard files to shared volume
+          cp -r /original-app/* /app/
+          
+          # Replace hardcoded localhost with correct domain in index.html
+          sed -i 's|http://localhost:8000/graphql/|http://dashboard-dev.aksa.ai/graphql/|g' /app/dashboard/index.html
+          
+          # Also replace in any JavaScript files that might contain the URL
+          find /app -name "*.js" -exec sed -i 's|http://localhost:8000|http://dashboard-dev.aksa.ai|g' {} \;
+          
+          echo "Fixed API URLs in dashboard files"
+          
+          # Verify the change
+          grep -n "dashboard-dev.aksa.ai" /app/dashboard/index.html || echo "URL replacement might have failed"
+        volumeMounts:
+        - name: dashboard-files
+          mountPath: /app
+        - name: original-dashboard
+          mountPath: /original-app
+      containers:
+      - name: saleor-dashboard
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: dashboard-files
+          mountPath: /usr/share/nginx/html
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        env:
+        - name: API_URI
+          valueFrom:
+            configMapKeyRef:
+              name: dashboard-config-fixed
+              key: API_URI
+        - name: APP_MOUNT_URI
+          valueFrom:
+            configMapKeyRef:
+              name: dashboard-config-fixed
+              key: APP_MOUNT_URI
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      # Sidecar to copy files from original dashboard image
+      - name: dashboard-source
+        image: ghcr.io/saleor/saleor-dashboard:latest
+        command: ['sh', '-c', 'cp -r /app/* /shared/ && sleep infinity']
+        volumeMounts:
+        - name: original-dashboard
+          mountPath: /shared
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "50m"
+      volumes:
+      - name: dashboard-files
+        emptyDir: {}
+      - name: original-dashboard
+        emptyDir: {}
+      - name: nginx-config
+        configMap:
+          name: nginx-dashboard-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-dashboard-config
+  namespace: saleor-dev
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html/dashboard;
+        index index.html;
+        
+        # CORS headers for API requests
+        location /graphql/ {
+            add_header 'Access-Control-Allow-Origin' 'http://dashboard-dev.aksa.ai' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Apollo-Require-Preflight' always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            
+            # Handle preflight requests
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Allow-Origin' 'http://dashboard-dev.aksa.ai';
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE';
+                add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Apollo-Require-Preflight';
+                add_header 'Access-Control-Allow-Credentials' 'true';
+                add_header 'Access-Control-Max-Age' 1728000;
+                add_header 'Content-Type' 'text/plain; charset=utf-8';
+                add_header 'Content-Length' 0;
+                return 204;
+            }
+            
+            # Proxy to API service
+            proxy_pass http://saleor-api:8000/graphql/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Serve dashboard files
+        location / {
+            try_files $uri $uri/ /index.html;
+            
+            # Add CORS headers for dashboard assets
+            add_header 'Access-Control-Allow-Origin' 'http://dashboard-dev.aksa.ai' always;
+        }
+        
+        # Handle static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            add_header 'Access-Control-Allow-Origin' 'http://dashboard-dev.aksa.ai' always;
+        }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-dashboard-fixed
+  namespace: saleor-dev
+  labels:
+    app: saleor-dashboard-fixed
+spec:
+  selector:
+    app: saleor-dashboard-fixed
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP

@@ -19,16 +19,14 @@ spec:
     spec:
       containers:
       - name: saleor-storefront
-        image: node:18-alpine
-        command: ["/bin/sh"]
-        args: ["-c", "cd /app && npm install && npm run dev"]
+        image: ghcr.io/saleor/saleor-storefront:latest
         ports:
         - containerPort: 3000
         env:
         - name: NEXT_PUBLIC_API_URI
-          value: "http://saleor-api:8000/graphql/"
+          value: "http://storefront-dev.aksa.ai/graphql/"
         - name: NODE_ENV
-          value: "development"
+          value: "production"
         resources:
           requests:
             memory: "512Mi"
@@ -36,9 +34,6 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
-        volumeMounts:
-        - name: storefront-code
-          mountPath: /app
         livenessProbe:
           httpGet:
             path: /
@@ -51,10 +46,6 @@ spec:
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
-      volumes:
-      - name: storefront-code
-        configMap:
-          name: storefront-config
 ---
 apiVersion: v1
 kind: Service
@@ -71,33 +62,3 @@ spec:
     targetPort: 3000
     protocol: TCP
   type: ClusterIP
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: storefront-config
-  namespace: saleor-dev
-data:
-  package.json: |
-    {
-      "name": "saleor-storefront",
-      "version": "1.0.0",
-      "scripts": {
-        "dev": "next dev -H 0.0.0.0",
-        "build": "next build",
-        "start": "next start"
-      },
-      "dependencies": {
-        "next": "13.4.0",
-        "react": "18.2.0",
-        "react-dom": "18.2.0",
-        "@apollo/client": "^3.7.0",
-        "graphql": "^16.6.0"
-      },
-      "devDependencies": {
-        "@types/node": "20.2.0",
-        "@types/react": "18.2.0",
-        "@types/react-dom": "18.2.0",
-        "typescript": "5.0.0"
-      }
-    }

@@ -1,0 +1,286 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storefront-startup-script
+  namespace: saleor-dev
+data:
+  startup.sh: |
+    #!/bin/sh
+    
+    # API URL to replace localhost with
+    API_URL="${API_URI:-http://storefront-dev.aksa.ai/graphql/}"
+    
+    echo "Starting storefront with API URL: $API_URL"
+    
+    # Create a simple storefront app with Google OAuth
+    cat > /app/package.json << 'EOF'
+    {
+      "name": "saleor-storefront",
+      "version": "1.0.0",
+      "scripts": {
+        "dev": "next dev -H 0.0.0.0",
+        "build": "next build",
+        "start": "next start -H 0.0.0.0"
+      },
+      "dependencies": {
+        "next": "13.4.0",
+        "react": "18.2.0",
+        "react-dom": "18.2.0",
+        "@apollo/client": "^3.7.0",
+        "graphql": "^16.6.0",
+        "next-auth": "^4.21.1"
+      },
+      "devDependencies": {
+        "@types/node": "20.2.0",
+        "@types/react": "18.2.0",
+        "@types/react-dom": "18.2.0",
+        "typescript": "^4.9.5"
+      }
+    }
+    EOF
+    
+    # Create pages directory
+    mkdir -p /app/pages /app/pages/api/auth
+    
+    # Create NextAuth configuration
+    cat > /app/pages/api/auth/[...nextauth].js << 'EOF'
+    import NextAuth from 'next-auth'
+    import GoogleProvider from 'next-auth/providers/google'
+    
+    export default NextAuth({
+      providers: [
+        GoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        })
+      ],
+      callbacks: {
+        async session({ session, token }) {
+          session.accessToken = token.accessToken
+          return session
+        },
+        async jwt({ token, account }) {
+          if (account) {
+            token.accessToken = account.access_token
+          }
+          return token
+        },
+      },
+    })
+    EOF
+    
+    # Create a simple storefront page with Google OAuth
+    cat > /app/pages/index.js << 'EOF'
+    import { ApolloClient, InMemoryCache, ApolloProvider, gql, useQuery } from '@apollo/client';
+    import { useSession, signIn, signOut } from 'next-auth/react';
+    import { SessionProvider } from 'next-auth/react';
+    
+    const client = new ApolloClient({
+      uri: process.env.NEXT_PUBLIC_API_URI || 'http://storefront-dev.aksa.ai/graphql/',
+      cache: new InMemoryCache(),
+    });
+    
+    const GET_SHOP = gql`
+      query GetShop {
+        shop {
+          name
+          description
+          domain {
+            host
+          }
+        }
+      }
+    `;
+    
+    function ShopInfo() {
+      const { loading, error, data } = useQuery(GET_SHOP);
+    
+      if (loading) return <p>Loading...</p>;
+      if (error) return <p>Error: {error.message}</p>;
+    
+      return (
+        <div>
+          <h1>Welcome to {data.shop.name}</h1>
+          <p>{data.shop.description}</p>
+          <p>Domain: {data.shop.domain.host}</p>
+        </div>
+      );
+    }
+    
+    function AuthSection() {
+      const { data: session, status } = useSession();
+    
+      if (status === 'loading') return <p>Loading...</p>;
+    
+      if (session) {
+        return (
+          <div style={{ border: '1px solid #ccc', padding: '20px', margin: '20px 0', borderRadius: '8px' }}>
+            <h3>Welcome, {session.user.name}!</h3>
+            <p>Email: {session.user.email}</p>
+            <img src={session.user.image} alt="Profile" style={{ width: '50px', height: '50px', borderRadius: '50%' }} />
+            <br />
+            <button onClick={() => signOut()} style={{ marginTop: '10px', padding: '10px 20px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              Sign Out
+            </button>
+          </div>
+        );
+      }
+    
+      return (
+        <div style={{ border: '1px solid #ccc', padding: '20px', margin: '20px 0', borderRadius: '8px' }}>
+          <h3>Please sign in</h3>
+          <button onClick={() => signIn('google')} style={{ padding: '10px 20px', backgroundColor: '#4285f4', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            Sign in with Google
+          </button>
+        </div>
+      );
+    }
+    
+    function HomePage() {
+      return (
+        <ApolloProvider client={client}>
+          <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+            <ShopInfo />
+            <h2>Saleor Storefront</h2>
+            <p>This is a simple storefront connected to the Saleor GraphQL API.</p>
+            <AuthSection />
+          </div>
+        </ApolloProvider>
+      );
+    }
+    
+    export default function Home() {
+      return (
+        <SessionProvider>
+          <HomePage />
+        </SessionProvider>
+      );
+    }
+    EOF
+    
+    # Create next.config.js
+    cat > /app/next.config.js << 'EOF'
+    /** @type {import('next').NextConfig} */
+    const nextConfig = {
+      reactStrictMode: true,
+      env: {
+        NEXT_PUBLIC_API_URI: process.env.NEXT_PUBLIC_API_URI,
+      },
+    }
+    
+    module.exports = nextConfig
+    EOF
+    
+    # Install dependencies and start
+    cd /app
+    npm install
+    npm run build
+    npm run start
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name _;
+        
+        location / {
+            proxy_pass http://localhost:3000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-storefront-fixed
+  namespace: saleor-dev
+  labels:
+    app: saleor-storefront-fixed
+    environment: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: saleor-storefront-fixed
+  template:
+    metadata:
+      labels:
+        app: saleor-storefront-fixed
+        environment: dev
+    spec:
+      containers:
+      - name: saleor-storefront
+        image: node:18-alpine
+        command: ['/bin/sh', '/scripts/startup.sh']
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_API_URI
+          value: "http://storefront-dev.aksa.ai/graphql/"
+        - name: NODE_ENV
+          value: "production"
+        - name: NEXTAUTH_URL
+          value: "http://storefront-dev.aksa.ai"
+        - name: NEXTAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: nextauth-secret
+              key: secret
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: google-oauth-secret
+              key: client-id
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: google-oauth-secret
+              key: client-secret
+        volumeMounts:
+        - name: startup-script
+          mountPath: /scripts
+        - name: app-volume
+          mountPath: /app
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 120
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 90
+          periodSeconds: 10
+      volumes:
+      - name: startup-script
+        configMap:
+          name: storefront-startup-script
+          defaultMode: 0755
+      - name: app-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-storefront-fixed
+  namespace: saleor-dev
+  labels:
+    app: saleor-storefront-fixed
+spec:
+  selector:
+    app: saleor-storefront-fixed
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+  type: ClusterIP
