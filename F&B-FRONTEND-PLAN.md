@@ -8,10 +8,11 @@ Build a modern, responsive web frontend for Food & Beverage customers using Sale
 2. [Architecture Overview](#architecture-overview)
 3. [Core Features](#core-features)
 4. [F&B Specific Features](#fb-specific-features)
-5. [Implementation Phases](#implementation-phases)
-6. [Technical Implementation Details](#technical-implementation-details)
-7. [Development Timeline](#development-timeline)
-8. [Deployment Strategy](#deployment-strategy)
+5. [Store Backoffice Development](#store-backoffice-development)
+6. [Implementation Phases](#implementation-phases)
+7. [Technical Implementation Details](#technical-implementation-details)
+8. [Development Timeline](#development-timeline)
+9. [Deployment Strategy](#deployment-strategy)
 
 ## Technology Stack
 
@@ -165,6 +166,330 @@ Build a modern, responsive web frontend for Food & Beverage customers using Sale
 - [ ] Special dietary meal filters
 - [ ] Temperature-controlled delivery options
 
+## Store Backoffice Development
+
+### Overview
+The store backoffice is a comprehensive management interface for F&B store owners and staff to manage their operations. It complements the existing Saleor dashboard with F&B-specific features and provides a streamlined interface for day-to-day store operations.
+
+### Target Users
+- **Store Owners**: Complete business oversight and management
+- **Store Managers**: Daily operations and staff management
+- **Kitchen Staff**: Order management and inventory tracking
+- **Delivery Personnel**: Order fulfillment and delivery coordination
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Store Backoffice Frontend                 │
+├─────────────────────────────────────────────────────────────┤
+│                     Next.js Application                      │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ Dashboard   │  │ Orders       │  │ Inventory        │  │
+│  │ Analytics   │  │ Management   │  │ Management       │  │
+│  └─────────────┘  └──────────────┘  └──────────────────┘  │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ Staff       │  │ Customer     │  │ Reports &        │  │
+│  │ Management  │  │ Management   │  │ Analytics        │  │
+│  └─────────────┘  └──────────────┘  └──────────────────┘  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              Apollo Client (GraphQL)                 │   │
+│  │          + REST APIs for F&B Operations              │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Saleor GraphQL API                        │
+│               + Custom F&B Business Logic                    │
+│                  (http://localhost:8000)                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Core Backoffice Features
+
+#### 1. Dashboard & Analytics
+- [ ] **Business Overview Dashboard**
+  - Daily/Weekly/Monthly sales metrics
+  - Order volume and trends
+  - Top-selling products
+  - Customer acquisition metrics
+  - Revenue analytics with charts
+
+- [ ] **Real-time Monitoring**
+  - Live order feed
+  - Kitchen queue status
+  - Delivery tracking
+  - Inventory alerts
+  - System health indicators
+
+- [ ] **Performance Metrics**
+  - Average order value
+  - Order fulfillment time
+  - Customer satisfaction ratings
+  - Staff productivity metrics
+  - Peak hours analysis
+
+#### 2. Order Management System
+- [ ] **Order Processing**
+  - Order queue with priority sorting
+  - Order status updates (Received → Preparing → Ready → Delivered)
+  - Order modification and cancellation
+  - Special instructions handling
+  - Batch order processing
+
+- [ ] **Kitchen Management**
+  - Kitchen display system (KDS)
+  - Order preparation timers
+  - Recipe instructions display
+  - Ingredient substitution tracking
+  - Quality control checkpoints
+
+- [ ] **Delivery Coordination**
+  - Delivery assignment system
+  - Route optimization
+  - Driver tracking
+  - Delivery time estimates
+  - Customer notification system
+
+#### 3. Inventory Management
+- [ ] **Stock Control**
+  - Real-time inventory tracking
+  - Low stock alerts
+  - Automated reorder points
+  - Supplier management
+  - Purchase order creation
+
+- [ ] **Perishables Management**
+  - Expiry date tracking
+  - FIFO (First In, First Out) system
+  - Waste tracking and reporting
+  - Temperature monitoring
+  - Batch/lot tracking
+
+- [ ] **Menu Management**
+  - Recipe creation and editing
+  - Ingredient cost calculation
+  - Menu item availability control
+  - Pricing management
+  - Nutritional information updates
+
+#### 4. Customer Management
+- [ ] **Customer Database**
+  - Customer profiles and history
+  - Order patterns analysis
+  - Loyalty program management
+  - Customer segmentation
+  - Communication preferences
+
+- [ ] **Customer Service**
+  - Support ticket system
+  - Complaint handling
+  - Refund processing
+  - Customer feedback collection
+  - Live chat integration
+
+- [ ] **Marketing Tools**
+  - Promotional campaign management
+  - Coupon code creation
+  - Email marketing integration
+  - Customer retention programs
+  - Review management
+
+#### 5. Staff Management
+- [ ] **Employee Management**
+  - Staff scheduling
+  - Role-based access control
+  - Performance tracking
+  - Training module access
+  - Payroll integration
+
+- [ ] **Shift Management**
+  - Shift planning and assignments
+  - Time tracking
+  - Break management
+  - Overtime calculations
+  - Attendance monitoring
+
+### F&B Specific Backoffice Features
+
+#### 1. Food Safety & Compliance
+- [ ] **HACCP Compliance**
+  - Temperature logging
+  - Cleaning schedules
+  - Food safety checklists
+  - Inspection reports
+  - Compliance documentation
+
+- [ ] **Allergen Management**
+  - Allergen tracking system
+  - Cross-contamination prevention
+  - Staff training records
+  - Customer allergen alerts
+  - Ingredient substitution logs
+
+#### 2. Kitchen Operations
+- [ ] **Recipe Management**
+  - Digital recipe cards
+  - Portion control guidelines
+  - Cooking instructions
+  - Plating specifications
+  - Quality standards
+
+- [ ] **Prep Planning**
+  - Daily prep lists
+  - Par level management
+  - Prep time tracking
+  - Waste reduction planning
+  - Equipment maintenance schedules
+
+#### 3. Delivery & Logistics
+- [ ] **Delivery Management**
+  - Delivery zone mapping
+  - Driver performance tracking
+  - Vehicle maintenance logs
+  - Fuel cost tracking
+  - Customer delivery preferences
+
+- [ ] **Packaging & Presentation**
+  - Packaging requirements
+  - Special handling instructions
+  - Presentation standards
+  - Eco-friendly options
+  - Cost per package tracking
+
+### Technical Implementation
+
+#### Technology Stack
+- **Frontend**: Next.js 14 with TypeScript
+- **State Management**: Zustand + React Query
+- **UI Components**: Tailwind CSS + Headless UI
+- **Charts & Analytics**: Chart.js or Recharts
+- **Real-time Updates**: WebSockets or Server-Sent Events
+- **Authentication**: JWT with role-based access control
+
+#### Component Architecture
+```
+src/backoffice/
+├── components/
+│   ├── dashboard/
+│   │   ├── MetricsCard.tsx
+│   │   ├── SalesChart.tsx
+│   │   ├── OrderFeed.tsx
+│   │   └── InventoryAlerts.tsx
+│   ├── orders/
+│   │   ├── OrderQueue.tsx
+│   │   ├── OrderDetails.tsx
+│   │   ├── KitchenDisplay.tsx
+│   │   └── DeliveryTracking.tsx
+│   ├── inventory/
+│   │   ├── ProductList.tsx
+│   │   ├── StockControl.tsx
+│   │   ├── SupplierManager.tsx
+│   │   └── RecipeEditor.tsx
+│   ├── customers/
+│   │   ├── CustomerList.tsx
+│   │   ├── CustomerProfile.tsx
+│   │   ├── LoyaltyProgram.tsx
+│   │   └── SupportTickets.tsx
+│   ├── staff/
+│   │   ├── EmployeeList.tsx
+│   │   ├── ShiftScheduler.tsx
+│   │   ├── PerformanceTracker.tsx
+│   │   └── RoleManager.tsx
+│   └── reports/
+│       ├── SalesReport.tsx
+│       ├── InventoryReport.tsx
+│       ├── StaffReport.tsx
+│       └── CustomReportBuilder.tsx
+├── pages/
+│   ├── dashboard.tsx
+│   ├── orders/
+│   │   ├── index.tsx
+│   │   ├── queue.tsx
+│   │   └── history.tsx
+│   ├── inventory/
+│   │   ├── products.tsx
+│   │   ├── suppliers.tsx
+│   │   └── recipes.tsx
+│   ├── customers/
+│   │   ├── index.tsx
+│   │   ├── loyalty.tsx
+│   │   └── support.tsx
+│   ├── staff/
+│   │   ├── employees.tsx
+│   │   ├── schedule.tsx
+│   │   └── performance.tsx
+│   └── reports/
+│       ├── sales.tsx
+│       ├── inventory.tsx
+│       └── custom.tsx
+├── hooks/
+│   ├── useOrders.ts
+│   ├── useInventory.ts
+│   ├── useCustomers.ts
+│   ├── useStaff.ts
+│   └── useReports.ts
+├── stores/
+│   ├── orderStore.ts
+│   ├── inventoryStore.ts
+│   ├── customerStore.ts
+│   └── staffStore.ts
+└── utils/
+    ├── permissions.ts
+    ├── notifications.ts
+    ├── export.ts
+    └── calculations.ts
+```
+
+### User Roles & Permissions
+
+#### Role-Based Access Control
+- **Owner**: Full access to all features
+- **Manager**: Operations management, staff scheduling, reports
+- **Kitchen Staff**: Order management, inventory updates, recipe access
+- **Delivery Personnel**: Delivery management, order status updates
+- **Customer Service**: Customer management, support tickets, refunds
+
+#### Permission Matrix
+| Feature | Owner | Manager | Kitchen | Delivery | Support |
+|---------|-------|---------|---------|----------|---------|
+| Dashboard | ✅ | ✅ | Limited | Limited | Limited |
+| Order Management | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Inventory Management | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Customer Management | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Staff Management | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Reports & Analytics | ✅ | ✅ | Limited | Limited | Limited |
+| System Settings | ✅ | Limited | ❌ | ❌ | ❌ |
+
+### Mobile Responsiveness
+- **Tablet Interface**: Optimized for kitchen displays and management tasks
+- **Mobile App**: Native mobile app for on-the-go management
+- **PWA Support**: Progressive Web App for offline functionality
+- **Touch-Friendly**: Large buttons and touch-optimized interfaces
+
+### Integration Points
+- **POS Systems**: Integration with popular POS solutions
+- **Accounting Software**: QuickBooks, Xero integration
+- **Delivery Platforms**: Third-party delivery service APIs
+- **Payment Processing**: Stripe, PayPal, Square integration
+- **Email Services**: SendGrid, Mailgun for notifications
+- **SMS Services**: Twilio for customer notifications
+
+### Security Features
+- **Multi-factor Authentication**: SMS and app-based 2FA
+- **Activity Logging**: Comprehensive audit trails
+- **Data Encryption**: End-to-end encryption for sensitive data
+- **Backup Systems**: Automated daily backups
+- **Compliance**: GDPR, PCI DSS compliance
+
+### Performance Optimization
+- **Real-time Updates**: WebSocket connections for live data
+- **Caching Strategy**: Redis for frequently accessed data
+- **Database Optimization**: Indexed queries and connection pooling
+- **CDN Integration**: Static asset delivery optimization
+- **Load Balancing**: Multiple server instances for high availability
+
 ## Implementation Phases
 
 ### Phase 1: Foundation ✅ COMPLETED (Weeks 1-3)
@@ -230,7 +555,26 @@ Build a modern, responsive web frontend for Food & Beverage customers using Sale
    - Meal subscriptions
    - Loyalty program
 
-### Phase 5: Polish & Launch (Weeks 13-14)
+### Phase 5: Store Backoffice Development (Weeks 13-16)
+1. **Backoffice Foundation**
+   - Authentication and role-based access
+   - Basic dashboard layout
+   - Navigation structure
+   - Permission system
+
+2. **Core Backoffice Features**
+   - Order management interface
+   - Inventory management system
+   - Customer management tools
+   - Staff scheduling system
+
+3. **F&B Specific Features**
+   - Kitchen display system
+   - Recipe management
+   - Food safety compliance tools
+   - Delivery coordination interface
+
+### Phase 6: Polish & Launch (Weeks 17-18)
 1. **Performance Optimization**
    - Image optimization
    - Code splitting
@@ -356,8 +700,9 @@ interface CartStore {
 | Phase 2 | 3 weeks | 🔄 IN PROGRESS | Product catalog, search functionality |
 | Phase 3 | 3 weeks | ⏳ PENDING | Cart and checkout implementation |
 | Phase 4 | 3 weeks | ⏳ PENDING | F&B specific features |
-| Phase 5 | 2 weeks | ⏳ PENDING | Testing, optimization, deployment |
-| **Total** | **14 weeks** | **21% Complete** | **Production-ready F&B frontend** |
+| Phase 5 | 4 weeks | ⏳ PENDING | Store backoffice development |
+| Phase 6 | 2 weeks | ⏳ PENDING | Testing, optimization, deployment |
+| **Total** | **18 weeks** | **17% Complete** | **Production-ready F&B frontend + backoffice** |
 
 ## Deployment Strategy
 
@@ -449,6 +794,19 @@ NEXT_PUBLIC_GOOGLE_MAPS_KEY=...
    - Delivery scheduling
    - Nutritional information
    - Dietary filters
+
+5. **Phase 5: Store Backoffice Development**
+   - Setup backoffice authentication and routing
+   - Implement dashboard with key metrics
+   - Build order management interface
+   - Create inventory management system
+   - Develop staff scheduling tools
+   - Add F&B-specific features (kitchen display, recipe management)
+
+6. **Backoffice Testing & Integration**
+   - Test role-based access control
+   - Verify real-time updates
+   - Test mobile responsiveness for tablets/kitchen displays
 
 ---
 
