@@ -6,11 +6,20 @@ import { io, Socket } from 'socket.io-client'
 // Types
 interface ChatMessage {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: Date
   intent?: string
   products?: Product[]
+  data?: any[]
+  isStreaming?: boolean
+  metadata?: {
+    typing?: boolean
+    error?: boolean
+    actions?: string[]
+    chartData?: any
+    alertLevel?: 'info' | 'warning' | 'error' | 'success'
+  }
 }
 
 interface Product {

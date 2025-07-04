@@ -1,0 +1,181 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Widget Comparison Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .timestamp {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section h2 {
+            color: #444;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .screenshot-item {
+            text-align: center;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .screenshot-item img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .screenshot-item h3 {
+            margin: 15px 0 5px 0;
+            color: #555;
+        }
+        .comparison-section {
+            text-align: center;
+        }
+        .comparison-section img {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #333;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .urls {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .urls h3 {
+            margin-top: 0;
+        }
+        .url-item {
+            margin: 5px 0;
+        }
+        .url-item strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ Chat Widget Comparison Report</h1>
+        <div class="timestamp">Generated on: 2025-07-04 15:15:44</div>
+        
+        <div class="urls">
+            <h3>📍 URLs Tested</h3>
+            <div class="url-item"><strong>Storefront:</strong> http://storefront-dev.aksa.ai/</div>
+            <div class="url-item"><strong>Backoffice:</strong> http://backoffice-dev.aksa.ai/</div>
+        </div>
+        
+        <div class="section comparison-section">
+            <h2>📊 Side-by-Side Comparisons</h2>
+
+            <div>
+                <img src="comparison_initial_20250704_151542.png" alt="Chat Comparison">
+            </div>
+
+            <div>
+                <img src="comparison_opened_20250704_151542.png" alt="Chat Comparison">
+            </div>
+
+            <div>
+                <img src="comparison_interaction_20250704_151542.png" alt="Chat Comparison">
+            </div>
+
+        </div>
+        
+        <div class="section">
+            <h2>📱 Individual Screenshots</h2>
+            <div class="screenshot-grid">
+
+                <div class="screenshot-item">
+                    <h3>Storefront - Initial <span class="status success">initial</span></h3>
+                    <img src="storefront_initial_20250704_151425.png" alt="Storefront initial">
+                </div>
+
+                <div class="screenshot-item">
+                    <h3>Storefront - Opened <span class="status success">opened</span></h3>
+                    <img src="storefront_opened_20250704_151425.png" alt="Storefront opened">
+                </div>
+
+                <div class="screenshot-item">
+                    <h3>Storefront - Interaction <span class="status success">interaction</span></h3>
+                    <img src="storefront_interaction_20250704_151425.png" alt="Storefront interaction">
+                </div>
+
+                <div class="screenshot-item">
+                    <h3>Backoffice - Initial <span class="status success">initial</span></h3>
+                    <img src="backoffice_initial_20250704_151516.png" alt="Backoffice initial">
+                </div>
+
+                <div class="screenshot-item">
+                    <h3>Backoffice - Opened <span class="status success">opened</span></h3>
+                    <img src="backoffice_opened_20250704_151516.png" alt="Backoffice opened">
+                </div>
+
+                <div class="screenshot-item">
+                    <h3>Backoffice - Interaction <span class="status success">interaction</span></h3>
+                    <img src="backoffice_interaction_20250704_151516.png" alt="Backoffice interaction">
+                </div>
+
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📋 Summary</h2>
+            <p>This report shows the chat widget implementations in both the storefront and backoffice applications.</p>
+            <ul>
+                <li><strong>Initial State:</strong> Shows the chat button before interaction</li>
+                <li><strong>Opened State:</strong> Shows the chat widget after clicking the button</li>
+                <li><strong>Interaction State:</strong> Shows the chat widget with a test message sent</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

@@ -25,7 +25,7 @@ export function ChatWidget({
   className,
   position = 'bottom-right',
   theme = 'light',
-  initialMessage = "👋 Hello! I'm your AI backoffice assistant. I can help you with orders, inventory, analytics, staff management, and more. What would you like to know?"
+  initialMessage = "👋 Halo! Saya asisten AI backoffice Anda. Saya bisa membantu dengan pesanan, inventori, analitik, manajemen staff, dan lainnya. Ada yang bisa saya bantu?"
 }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState('')
@@ -129,22 +129,22 @@ export function ChatWidget({
   }
 
   const quickActions = [
-    { label: "Today's Orders", action: "todays_orders", emoji: "📦", category: "orders" },
-    { label: "Inventory Status", action: "inventory_status", emoji: "📋", category: "inventory" },
-    { label: "Sales Analytics", action: "sales_analytics", emoji: "📊", category: "analytics" },
-    { label: "Staff Schedule", action: "staff_schedule", emoji: "👥", category: "staff" },
-    { label: "Low Stock Alert", action: "low_stock", emoji: "⚠️", category: "inventory" },
-    { label: "Customer Reports", action: "customer_reports", emoji: "👤", category: "customers" },
+    { label: "Pesanan Hari Ini", action: "todays_orders", emoji: "📦", category: "orders" as const },
+    { label: "Status Inventori", action: "inventory_status", emoji: "📋", category: "inventory" as const },
+    { label: "Analitik Penjualan", action: "sales_analytics", emoji: "📊", category: "analytics" as const },
+    { label: "Jadwal Staff", action: "staff_schedule", emoji: "👥", category: "staff" as const },
+    { label: "Alert Stok Rendah", action: "low_stock", emoji: "⚠️", category: "inventory" as const },
+    { label: "Laporan Pelanggan", action: "customer_reports", emoji: "👤", category: "customers" as const },
   ]
 
   const handleQuickAction = async (action: string) => {
     const actionMessages: Record<string, string> = {
-      todays_orders: "Show me today's orders",
-      inventory_status: "What's our current inventory status?",
-      sales_analytics: "Show me today's sales performance",
-      staff_schedule: "Who's scheduled for today?",
-      low_stock: "What items are running low on stock?",
-      customer_reports: "Show me customer analytics",
+      todays_orders: "Tampilkan pesanan hari ini",
+      inventory_status: "Bagaimana status inventori saat ini?",
+      sales_analytics: "Tampilkan performa penjualan hari ini",
+      staff_schedule: "Siapa yang bertugas hari ini?",
+      low_stock: "Item apa yang stoknya rendah?",
+      customer_reports: "Tampilkan analitik pelanggan",
     }
     
     const messageText = actionMessages[action] || action
@@ -178,7 +178,9 @@ export function ChatWidget({
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="relative bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-colors duration-200"
+            data-testid="chat-button"
+            aria-label="Open chat widget"
+            className="relative bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-colors duration-200 chat-toggle-button"
           >
             <MessageCircle className="h-6 w-6" />
             {/* Connection status indicator */}
@@ -203,8 +205,9 @@ export function ChatWidget({
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            data-testid="chat-widget"
             className={cn(
-              "absolute bottom-0 right-0 w-96 h-[600px] rounded-lg shadow-2xl border flex flex-col overflow-hidden",
+              "absolute bottom-0 right-0 w-96 h-[650px] rounded-lg shadow-2xl border flex flex-col overflow-hidden",
               themeClasses[theme]
             )}
           >
@@ -215,7 +218,7 @@ export function ChatWidget({
                   🍕
                 </div>
                 <div>
-                  <h3 className="font-semibold">Backoffice Assistant</h3>
+                  <h3 className="font-semibold">Asisten Backoffice</h3>
                   <p className="text-xs opacity-90">
                     {isConnected ? 'Online' : 'Connecting...'}
                   </p>
@@ -278,8 +281,10 @@ export function ChatWidget({
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
+                    placeholder="Ketik pesan Anda..."
                     disabled={!isConnected}
+                    data-testid="chat-input"
+                    aria-label="Type your message"
                     className={cn(
                       "w-full px-4 py-2 pr-12 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500",
                       "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -309,6 +314,8 @@ export function ChatWidget({
                 <button
                   onClick={handleSendMessage}
                   disabled={!message.trim() || !isConnected || isTyping}
+                  data-testid="chat-send-button"
+                  aria-label="Send message"
                   className={cn(
                     "p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors",
                     "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"

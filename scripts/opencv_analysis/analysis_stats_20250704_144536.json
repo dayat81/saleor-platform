@@ -1,0 +1,47 @@
+{
+  "pixel": {
+    "total_pixels": 480000,
+    "different_pixels": 372463,
+    "similarity_percentage": 22.403541666666666,
+    "avg_difference": {
+      "red": 112.59545416666667,
+      "green": 117.31783333333334,
+      "blue": 43.97711041666667,
+      "overall": 91.29679930555555
+    }
+  },
+  "ssim": {
+    "similarity_index": 0.6964843490550019,
+    "available": true
+  },
+  "features": {
+    "corners": {
+      "image1": 100,
+      "image2": 100
+    },
+    "contours": {
+      "image1": 306,
+      "image2": 3
+    },
+    "edge_difference_pixels": 14033
+  },
+  "regions": [
+    {
+      "id": 0,
+      "area": 478565.0,
+      "perimeter": 2800.9705624580383,
+      "bounding_box": [
+        0,
+        0,
+        800,
+        600
+      ],
+      "aspect_ratio": 1.3333333333333333,
+      "center": [
+        400,
+        300
+      ]
+    }
+  ],
+  "analysis_timestamp": "20250704_144536"
+}

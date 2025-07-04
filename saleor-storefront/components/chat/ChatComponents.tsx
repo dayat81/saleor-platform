@@ -37,7 +37,7 @@ interface QuickAction {
   action: string
   emoji?: string
   variant?: 'primary' | 'secondary' | 'outline'
-  category?: 'orders' | 'inventory' | 'staff' | 'analytics' | 'customers'
+  category?: 'browse' | 'orders' | 'account' | 'help' | 'general'
 }
 
 // Streamlit-inspired typewriter effect component
@@ -130,7 +130,7 @@ export function ChatMessage({
               {getMessageIcon(intent, isSystem)}
             </div>
             <span className="text-xs text-gray-500 font-medium">
-              {isSystem ? 'System Alert' : 'Backoffice Assistant'}
+              {isSystem ? 'Alert Sistem' : 'Asisten Storefront'}
             </span>
           </div>
         )}

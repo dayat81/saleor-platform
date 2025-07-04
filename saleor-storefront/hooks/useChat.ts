@@ -11,11 +11,14 @@ interface ChatMessage {
   timestamp: Date
   intent?: string
   products?: Product[]
+  data?: any[]
   isStreaming?: boolean
   metadata?: {
     typing?: boolean
     error?: boolean
     actions?: string[]
+    chartData?: any
+    alertLevel?: 'info' | 'warning' | 'error' | 'success'
   }
 }
 

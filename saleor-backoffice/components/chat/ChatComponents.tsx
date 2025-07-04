@@ -134,7 +134,7 @@ export function ChatMessage({
               {getMessageIcon(intent, isSystem)}
             </div>
             <span className="text-xs text-gray-500 font-medium">
-              {isSystem ? 'System Alert' : 'Backoffice Assistant'}
+              {isSystem ? 'Alert Sistem' : 'Asisten Backoffice'}
             </span>
           </div>
         )}
@@ -441,7 +441,7 @@ export function MessageHistory({
         </button>
       </div>
       <p className="text-xs text-gray-500">
-        Your session is automatically saved for continuity across backoffice operations.
+        Sesi Anda disimpan otomatis untuk kelancaran operasi backoffice.
       </p>
     </div>
   )
@@ -456,7 +456,7 @@ export function ConnectionStatus({
   onRetry?: () => void 
 }) {
   const statusConfig = {
-    connecting: { color: 'yellow', text: 'Connecting to backoffice...', icon: '🔄' },
+    connecting: { color: 'yellow', text: 'Menghubungkan ke backoffice...', icon: '🔄' },
     connected: { color: 'green', text: 'Backoffice Online', icon: '✅' },
     disconnected: { color: 'red', text: 'Disconnected', icon: '❌' },
     error: { color: 'red', text: 'Connection Error', icon: '⚠️' }

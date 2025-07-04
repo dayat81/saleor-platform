@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-backoffice-with-chat-v2-1-0
+  namespace: default
+  labels:
+    app: saleor-backoffice-with-chat
+    version: v2.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: saleor-backoffice-with-chat
+      version: v2.1.0
+  template:
+    metadata:
+      labels:
+        app: saleor-backoffice-with-chat
+        version: v2.1.0
+    spec:
+      containers:
+      - name: saleor-backoffice
+        image: saleor-backoffice-with-chat:v2.1.0
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: NEXT_PUBLIC_API_URL
+          value: "http://api:8000/graphql/"
+        - name: NEXT_PUBLIC_CHAT_SERVICE_URL
+          value: "http://saleor-chat-service-v2-1-0:3001"
+        - name: NEXTAUTH_URL
+          value: "http://backoffice-dev.aksa.ai"
+        - name: NEXTAUTH_SECRET
+          value: "your-nextauth-secret-key"
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-backoffice-with-chat-v2-1-0
+  namespace: default
+spec:
+  selector:
+    app: saleor-backoffice-with-chat
+    version: v2.1.0
+  ports:
+  - protocol: TCP
+    port: 3000
+    targetPort: 3000
+  type: ClusterIP
