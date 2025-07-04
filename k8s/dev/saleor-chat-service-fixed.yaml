@@ -1,0 +1,322 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-chat-service
+  namespace: saleor-dev
+  labels:
+    app: saleor-chat-service
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: saleor-chat-service
+  template:
+    metadata:
+      labels:
+        app: saleor-chat-service
+        component: backend
+    spec:
+      containers:
+      - name: chat-service
+        image: node:18-alpine
+        ports:
+        - containerPort: 3002
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3002"
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chat-service-secrets
+              key: gemini-api-key
+        - name: SALEOR_API_URL
+          value: "http://saleor-api:8000/graphql/"
+        - name: SALEOR_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: chat-service-secrets
+              key: saleor-auth-token
+              optional: true
+        - name: REDIS_URL
+          value: "redis://saleor-redis:6379"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: chat-service-secrets
+              key: jwt-secret
+        - name: CORS_ORIGIN
+          value: "http://storefront-dev.aksa.ai,http://dashboard-dev.aksa.ai,http://backoffice-dev.aksa.ai"
+        - name: LOG_LEVEL
+          value: "info"
+        workingDir: /app
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "🤖 Starting Saleor Chat Service with Gemini AI..."
+          
+          cat > package.json << 'EOF'
+          {
+            "name": "saleor-chat-service",
+            "version": "1.0.0",
+            "main": "index.js",
+            "dependencies": {
+              "@google/generative-ai": "^0.21.0",
+              "express": "^4.18.2",
+              "cors": "^2.8.5",
+              "helmet": "^7.1.0",
+              "uuid": "^9.0.1",
+              "winston": "^3.13.0"
+            }
+          }
+          EOF
+          
+          npm install --production
+          
+          cat > index.js << 'EOF'
+          const express = require('express');
+          const cors = require('cors');
+          const helmet = require('helmet');
+          const { v4: uuidv4 } = require('uuid');
+          const winston = require('winston');
+          
+          let GoogleGenerativeAI;
+          try {
+            GoogleGenerativeAI = require('@google/generative-ai').GoogleGenerativeAI;
+          } catch (e) {
+            console.log('Gemini AI not available:', e.message);
+          }
+          
+          const config = {
+            port: parseInt(process.env.PORT || '3002', 10),
+            geminiApiKey: process.env.GEMINI_API_KEY || '',
+            corsOrigin: (process.env.CORS_ORIGIN || '').split(',').filter(o => o.length > 0),
+          };
+          
+          const logger = winston.createLogger({
+            level: 'info',
+            format: winston.format.combine(
+              winston.format.timestamp(),
+              winston.format.json()
+            ),
+            transports: [new winston.transports.Console()]
+          });
+          
+          let model = null;
+          if (config.geminiApiKey && GoogleGenerativeAI) {
+            try {
+              const genAI = new GoogleGenerativeAI(config.geminiApiKey);
+              model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+              logger.info('Gemini AI initialized successfully');
+            } catch (error) {
+              logger.error('Failed to initialize Gemini AI:', error.message);
+            }
+          }
+          
+          const app = express();
+          const sessions = new Map();
+          
+          app.use(helmet());
+          app.use(cors({
+            origin: config.corsOrigin.length > 0 ? config.corsOrigin : true,
+            credentials: true
+          }));
+          app.use(express.json());
+          
+          app.get('/health', (req, res) => {
+            res.json({
+              status: 'healthy',
+              timestamp: new Date(),
+              service: 'saleor-chat-service',
+              version: '1.0.0',
+              geminiConfigured: !!config.geminiApiKey
+            });
+          });
+          
+          app.get('/', (req, res) => {
+            res.json({
+              message: 'Saleor Chat Service API with Gemini AI',
+              version: '1.0.0',
+              status: 'running'
+            });
+          });
+          
+          app.post('/api/chat/session/start', (req, res) => {
+            const sessionId = uuidv4();
+            const session = {
+              id: sessionId,
+              userId: req.body.userId,
+              createdAt: new Date(),
+              messages: []
+            };
+            
+            sessions.set(sessionId, session);
+            logger.info('New chat session created', { sessionId });
+            
+            res.json({
+              success: true,
+              data: {
+                sessionId,
+                message: 'Hello! I am your AI food ordering assistant powered by Gemini. What would you like to order today?'
+              }
+            });
+          });
+          
+          app.post('/api/chat/message', async (req, res) => {
+            try {
+              const { message, sessionId } = req.body;
+              
+              if (!message || !message.trim()) {
+                return res.status(400).json({
+                  success: false,
+                  error: 'Message is required'
+                });
+              }
+              
+              let finalSessionId = sessionId;
+              if (!finalSessionId) {
+                finalSessionId = uuidv4();
+                sessions.set(finalSessionId, {
+                  id: finalSessionId,
+                  createdAt: new Date(),
+                  messages: []
+                });
+              }
+              
+              const session = sessions.get(finalSessionId);
+              if (!session) {
+                return res.status(404).json({
+                  success: false,
+                  error: 'Session not found'
+                });
+              }
+              
+              session.messages.push({
+                role: 'user',
+                content: message,
+                timestamp: new Date()
+              });
+              
+              let aiResponse = '';
+              
+              if (model) {
+                try {
+                  const recentMessages = session.messages.slice(-10);
+                  const conversationHistory = recentMessages.map(msg => 
+                    msg.role + ': ' + msg.content
+                  ).join('\n');
+                  
+                  const prompt = 'You are a helpful food ordering assistant for a restaurant.\n\nPrevious conversation:\n' + conversationHistory + '\n\nCurrent customer message: ' + message + '\n\nPlease respond naturally and helpfully. If they are asking about food, suggest menu items. If they want to order, help them with quantities and preferences. Keep responses conversational and under 150 words.\n\nYour response:';
+                  
+                  const result = await model.generateContent(prompt);
+                  const response = await result.response;
+                  aiResponse = response.text();
+                  
+                  logger.info('Gemini AI response generated', { 
+                    sessionId: finalSessionId,
+                    messageLength: message.length,
+                    responseLength: aiResponse.length 
+                  });
+                } catch (error) {
+                  logger.error('Gemini AI error:', error.message);
+                  aiResponse = 'I apologize, but I am having trouble processing your request right now. However, I can still help you! Could you tell me what type of food you are interested in ordering?';
+                }
+              } else {
+                const lowerMessage = message.toLowerCase();
+                if (lowerMessage.includes('pizza')) {
+                  aiResponse = '🍕 Great choice! We have delicious pizzas. Would you like to see our pizza menu? We have Margherita ($12.99), Pepperoni ($14.99), and Veggie Supreme ($13.99).';
+                } else if (lowerMessage.includes('burger')) {
+                  aiResponse = '🍔 Awesome! Our burgers are popular. We have Classic Beef Burger ($9.99), Chicken Burger ($8.99), and Veggie Burger ($8.49). Which sounds good?';
+                } else if (lowerMessage.includes('menu') || lowerMessage.includes('food') || lowerMessage.includes('order')) {
+                  aiResponse = '📋 I would be happy to help you order! We have pizzas, burgers, salads, and drinks. What type of food are you in the mood for today?';
+                } else if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
+                  aiResponse = '👋 Hello! Welcome to our restaurant. I am here to help you order delicious food. What would you like to try today?';
+                } else {
+                  aiResponse = 'I received your message: "' + message + '". I am here to help you order food! You can ask me about our menu, order pizzas, burgers, salads, or drinks. What would you like?';
+                }
+              }
+              
+              session.messages.push({
+                role: 'assistant',
+                content: aiResponse,
+                timestamp: new Date()
+              });
+              
+              res.json({
+                success: true,
+                data: {
+                  sessionId: finalSessionId,
+                  message: aiResponse,
+                  timestamp: new Date()
+                }
+              });
+              
+            } catch (error) {
+              logger.error('Error processing message:', error.message);
+              res.status(500).json({
+                success: false,
+                error: 'Failed to process message',
+                message: error.message
+              });
+            }
+          });
+          
+          app.listen(config.port, () => {
+            logger.info('Saleor Chat Service started on port ' + config.port, {
+              geminiEnabled: !!config.geminiApiKey,
+              corsOrigins: config.corsOrigin
+            });
+          });
+          EOF
+          
+          node index.js
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-chat-service
+  namespace: saleor-dev
+  labels:
+    app: saleor-chat-service
+spec:
+  selector:
+    app: saleor-chat-service
+  ports:
+  - port: 3002
+    targetPort: 3002
+    protocol: TCP
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chat-service-secrets
+  namespace: saleor-dev
+type: Opaque
+data:
+  # Base64 encoded secrets
+  gemini-api-key: QUl6YVN5RGM1aUY1eExIMGl1amJCM2pvMGg5NHRXS2lGbTZJR1lv
+  jwt-secret: c2FsZW9yLWNoYXQtand0LXNlY3JldC0yMDI0
+  saleor-auth-token: ""

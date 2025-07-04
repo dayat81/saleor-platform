@@ -4,6 +4,7 @@ import { ApolloWrapper } from '@/lib/apollo-wrapper'
 import { AuthProvider } from '@/lib/auth-context'
 import { ProtectedRoute } from '@/components/auth/protected-route'
 import { Toaster } from '@/components/ui/toaster'
+import { ChatWidget } from '@/components/chat/ChatWidget'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -26,6 +27,7 @@ export default function RootLayout({
               {children}
             </ProtectedRoute>
             <Toaster />
+            <ChatWidget />
           </AuthProvider>
         </ApolloWrapper>
       </body>

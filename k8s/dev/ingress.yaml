@@ -54,6 +54,20 @@ spec:
             name: saleor-storefront-fixed
             port:
               number: 3000
+      - path: /api/chat/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-chat-service
+            port:
+              number: 3002
+      - path: /socket.io/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-chat-service
+            port:
+              number: 3002
       - path: /graphql/
         pathType: Prefix
         backend:
@@ -72,12 +86,26 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: saleor-storefront-fixed
+            name: saleor-storefront-with-chat
             port:
-              number: 3000
+              number: 80
   - host: backoffice-dev.aksa.ai
     http:
       paths:
+      - path: /api/chat/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-chat-service
+            port:
+              number: 3002
+      - path: /socket.io/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-chat-service
+            port:
+              number: 3002
       - path: /api/
         pathType: Prefix
         backend:
@@ -103,7 +131,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: saleor-backoffice-auth
+            name: saleor-backoffice-with-chat
             port:
               number: 80
 ---

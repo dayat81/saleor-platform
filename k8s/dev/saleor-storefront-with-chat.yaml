@@ -1,0 +1,512 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-storefront-with-chat
+  namespace: saleor-dev
+  labels:
+    app: saleor-storefront-with-chat
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: saleor-storefront-with-chat
+  template:
+    metadata:
+      labels:
+        app: saleor-storefront-with-chat
+    spec:
+      containers:
+      - name: storefront
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+        env:
+        - name: NEXT_PUBLIC_CHAT_SERVICE_URL
+          value: "http://storefront-dev.aksa.ai"
+        - name: NEXT_PUBLIC_SALEOR_API_URL
+          value: "http://api-dev.aksa.ai/graphql/"
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        - name: storefront-static
+          mountPath: /usr/share/nginx/html
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: storefront-chat-nginx-config
+      - name: storefront-static
+        emptyDir: {}
+      initContainers:
+      - name: build-storefront
+        image: node:18-alpine
+        workingDir: /build
+        env:
+        - name: NEXT_PUBLIC_CHAT_SERVICE_URL
+          value: "http://storefront-dev.aksa.ai"
+        - name: NEXT_PUBLIC_SALEOR_API_URL
+          value: "http://api-dev.aksa.ai/graphql/"
+        - name: NODE_ENV
+          value: "production"
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            echo "🛒 Building Saleor Storefront with Chat Widget..."
+            
+            # Create package.json
+            cat > package.json << 'EOF'
+            {
+              "name": "saleor-storefront-chat",
+              "version": "1.0.0",
+              "private": true,
+              "scripts": {
+                "build": "next build && next export",
+                "start": "next start"
+              },
+              "dependencies": {
+                "next": "14.0.4",
+                "react": "^18.2.0",
+                "react-dom": "^18.2.0",
+                "framer-motion": "^12.22.0",
+                "lucide-react": "^0.344.0",
+                "date-fns": "^3.6.0",
+                "socket.io-client": "^4.7.5",
+                "clsx": "^2.1.0",
+                "tailwind-merge": "^2.2.1"
+              },
+              "devDependencies": {
+                "@types/node": "^20.10.6",
+                "@types/react": "^18.2.46",
+                "@types/react-dom": "^18.2.18",
+                "autoprefixer": "^10.4.16",
+                "postcss": "^8.4.32",
+                "tailwindcss": "^3.4.0",
+                "typescript": "^5.3.3"
+              }
+            }
+            EOF
+            
+            # Create next.config.js
+            cat > next.config.js << 'EOF'
+            /** @type {import('next').NextConfig} */
+            const nextConfig = {
+              output: 'export',
+              trailingSlash: true,
+              images: {
+                unoptimized: true
+              },
+              env: {
+                NEXT_PUBLIC_CHAT_SERVICE_URL: process.env.NEXT_PUBLIC_CHAT_SERVICE_URL,
+                NEXT_PUBLIC_SALEOR_API_URL: process.env.NEXT_PUBLIC_SALEOR_API_URL,
+              },
+            }
+            
+            module.exports = nextConfig
+            EOF
+            
+            # Create Tailwind config
+            cat > tailwind.config.js << 'EOF'
+            /** @type {import('tailwindcss').Config} */
+            module.exports = {
+              content: [
+                './pages/**/*.{js,ts,jsx,tsx,mdx}',
+                './components/**/*.{js,ts,jsx,tsx,mdx}',
+                './app/**/*.{js,ts,jsx,tsx,mdx}',
+              ],
+              theme: {
+                extend: {},
+              },
+              plugins: [],
+            }
+            EOF
+            
+            # Create app structure
+            mkdir -p app components hooks lib
+            
+            # Create globals.css
+            cat > app/globals.css << 'EOF'
+            @tailwind base;
+            @tailwind components;
+            @tailwind utilities;
+            
+            html,
+            body {
+              padding: 0;
+              margin: 0;
+              font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+                Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+            }
+            
+            * {
+              box-sizing: border-box;
+            }
+            EOF
+            
+            # Create lib/utils.ts
+            cat > lib/utils.ts << 'EOF'
+            import { clsx } from "clsx"
+            import { twMerge } from "tailwind-merge"
+            
+            export function cn(...inputs) {
+              return twMerge(clsx(inputs))
+            }
+            EOF
+            
+            # Create hooks/useChat.ts
+            cat > hooks/useChat.ts << 'EOF'
+            'use client'
+            
+            import { useState, useCallback } from 'react'
+            
+            export function useChat() {
+              const [messages, setMessages] = useState([])
+              const [isTyping, setIsTyping] = useState(false)
+              const [isConnected, setIsConnected] = useState(true)
+              const [sessionId, setSessionId] = useState(null)
+              const [connectionStatus, setConnectionStatus] = useState('connected')
+            
+              const sendMessage = useCallback(async (message) => {
+                try {
+                  const chatServiceUrl = process.env.NEXT_PUBLIC_CHAT_SERVICE_URL || 'http://storefront-dev.aksa.ai'
+                  
+                  const userMessage = {
+                    id: Date.now().toString(),
+                    role: 'user',
+                    content: message,
+                    timestamp: new Date()
+                  }
+                  
+                  setMessages(prev => [...prev, userMessage])
+                  setIsTyping(true)
+                  
+                  const response = await fetch(`${chatServiceUrl}/api/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      message,
+                      sessionId: sessionId
+                    })
+                  })
+                  
+                  const data = await response.json()
+                  
+                  if (data.success) {
+                    const aiMessage = {
+                      id: (Date.now() + 1).toString(),
+                      role: 'assistant',
+                      content: data.data.message,
+                      timestamp: new Date()
+                    }
+                    
+                    setMessages(prev => [...prev, aiMessage])
+                    setSessionId(data.data.sessionId)
+                  }
+                } catch (error) {
+                  console.error('Chat error:', error)
+                  const errorMessage = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: 'Sorry, I had trouble processing your message. Please try again.',
+                    timestamp: new Date()
+                  }
+                  setMessages(prev => [...prev, errorMessage])
+                } finally {
+                  setIsTyping(false)
+                }
+              }, [sessionId])
+            
+              const startSession = useCallback(async () => {
+                try {
+                  const chatServiceUrl = process.env.NEXT_PUBLIC_CHAT_SERVICE_URL || 'http://storefront-dev.aksa.ai'
+                  const response = await fetch(`${chatServiceUrl}/api/chat/session/start`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                  })
+                  
+                  const data = await response.json()
+                  if (data.success) {
+                    setSessionId(data.data.sessionId)
+                  }
+                } catch (error) {
+                  console.error('Session start error:', error)
+                }
+              }, [])
+            
+              const clearMessages = useCallback(() => {
+                setMessages([])
+              }, [])
+            
+              const retryConnection = useCallback(() => {
+                setConnectionStatus('connected')
+              }, [])
+            
+              return {
+                messages,
+                isTyping,
+                isConnected,
+                sessionId,
+                connectionStatus,
+                sendMessage,
+                startSession,
+                clearMessages,
+                retryConnection,
+              }
+            }
+            EOF
+            
+            # Create simple chat widget
+            cat > components/ChatWidget.tsx << 'EOF'
+            'use client'
+            
+            import { useState, useEffect } from 'react'
+            import { useChat } from '../hooks/useChat'
+            
+            export function ChatWidget() {
+              const [isOpen, setIsOpen] = useState(false)
+              const [message, setMessage] = useState('')
+              const { messages, isTyping, sendMessage, startSession } = useChat()
+            
+              useEffect(() => {
+                if (isOpen) {
+                  startSession()
+                }
+              }, [isOpen, startSession])
+            
+              const handleSend = async () => {
+                if (message.trim()) {
+                  await sendMessage(message)
+                  setMessage('')
+                }
+              }
+            
+              return (
+                <div className="fixed bottom-4 right-4 z-50">
+                  {!isOpen && (
+                    <button
+                      onClick={() => setIsOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-colors"
+                    >
+                      💬
+                    </button>
+                  )}
+                  
+                  {isOpen && (
+                    <div className="bg-white rounded-lg shadow-xl border w-96 h-96 flex flex-col">
+                      <div className="p-4 border-b bg-blue-600 text-white rounded-t-lg flex justify-between items-center">
+                        <h3 className="font-semibold">🍕 Food Assistant</h3>
+                        <button
+                          onClick={() => setIsOpen(false)}
+                          className="text-white hover:bg-blue-700 rounded p-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      
+                      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        {messages.length === 0 && (
+                          <div className="text-gray-600 text-sm">
+                            👋 Hello! I'm your AI food ordering assistant. What would you like to order today?
+                          </div>
+                        )}
+                        
+                        {messages.map((msg) => (
+                          <div key={msg.id} className={`p-2 rounded max-w-xs ${
+                            msg.role === 'user' 
+                              ? 'bg-blue-600 text-white ml-auto' 
+                              : 'bg-gray-100 text-gray-900'
+                          }`}>
+                            {msg.content}
+                          </div>
+                        ))}
+                        
+                        {isTyping && (
+                          <div className="bg-gray-100 text-gray-900 p-2 rounded max-w-xs">
+                            AI is typing...
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="p-4 border-t flex space-x-2">
+                        <input
+                          type="text"
+                          value={message}
+                          onChange={(e) => setMessage(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                          placeholder="Type your message..."
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={handleSend}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+            EOF
+            
+            # Create layout
+            cat > app/layout.tsx << 'EOF'
+            import './globals.css'
+            import { ChatWidget } from '../components/ChatWidget'
+            
+            export const metadata = {
+              title: 'F&B Marketplace with AI Chat',
+              description: 'Order food with AI assistance',
+            }
+            
+            export default function RootLayout({
+              children,
+            }: {
+              children: React.ReactNode
+            }) {
+              return (
+                <html lang="en">
+                  <body>
+                    {children}
+                    <ChatWidget />
+                  </body>
+                </html>
+              )
+            }
+            EOF
+            
+            # Create main page
+            cat > app/page.tsx << 'EOF'
+            export default function Home() {
+              return (
+                <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+                  <div className="container mx-auto px-4 py-16">
+                    <div className="text-center">
+                      <h1 className="text-5xl font-bold text-gray-900 mb-6">
+                        🍕 F&B Marketplace
+                      </h1>
+                      <p className="text-xl text-gray-600 mb-8">
+                        Fresh Food & Beverages with AI Assistant
+                      </p>
+                      <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl mx-auto">
+                        <h2 className="text-3xl font-semibold text-gray-800 mb-6">
+                          Welcome to Our Store
+                        </h2>
+                        <div className="grid md:grid-cols-3 gap-6">
+                          <div className="text-center p-6 bg-blue-50 rounded-lg">
+                            <div className="text-4xl mb-4">🍕</div>
+                            <h3 className="text-lg font-semibold mb-2">Delicious Pizza</h3>
+                            <p className="text-gray-600">Fresh ingredients, perfect crust</p>
+                          </div>
+                          <div className="text-center p-6 bg-green-50 rounded-lg">
+                            <div className="text-4xl mb-4">🍔</div>
+                            <h3 className="text-lg font-semibold mb-2">Gourmet Burgers</h3>
+                            <p className="text-gray-600">Juicy patties, premium toppings</p>
+                          </div>
+                          <div className="text-center p-6 bg-yellow-50 rounded-lg">
+                            <div className="text-4xl mb-4">🥗</div>
+                            <h3 className="text-lg font-semibold mb-2">Fresh Salads</h3>
+                            <p className="text-gray-600">Healthy options, crisp vegetables</p>
+                          </div>
+                        </div>
+                        <div className="mt-8 p-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg">
+                          <h3 className="text-xl font-semibold mb-2">💬 Try Our AI Assistant!</h3>
+                          <p>Click the chat button in the bottom-right corner to order with AI help.</p>
+                          <p className="text-sm mt-2 opacity-90">Say things like: "I want a pizza" or "Show me vegetarian options"</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </main>
+              )
+            }
+            EOF
+            
+            # Install dependencies and build
+            npm install
+            npm run build
+            
+            # Copy built files to nginx directory
+            cp -r out/* /static/
+            
+            echo "✅ Storefront with chat widget built successfully!"
+            ls -la /static/
+        volumeMounts:
+        - name: storefront-static
+          mountPath: /static
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-storefront-with-chat
+  namespace: saleor-dev
+  labels:
+    app: saleor-storefront-with-chat
+spec:
+  selector:
+    app: saleor-storefront-with-chat
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storefront-chat-nginx-config
+  namespace: saleor-dev
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+        
+        location / {
+            try_files $uri $uri/ $uri.html /index.html;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+        
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        gzip on;
+        gzip_vary on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
+    }

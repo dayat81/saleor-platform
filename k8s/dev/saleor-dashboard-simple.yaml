@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-simple-config
+  namespace: saleor-dev
+data:
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name _;
+        
+        # Serve dashboard files from root
+        location / {
+            root /usr/share/nginx/html;
+            try_files $uri $uri/ /index.html;
+            
+            # Add CORS headers
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+            add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
+        }
+        
+        # Handle static assets with caching
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+            root /usr/share/nginx/html;
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+  startup.sh: |
+    #!/bin/sh
+    echo "Starting dashboard configuration..."
+    
+    # Copy dashboard files to nginx directory maintaining structure
+    cp -r /app/dashboard /usr/share/nginx/html/
+    
+    # Also copy index.html to root
+    cp /app/dashboard/index.html /usr/share/nginx/html/
+    
+    # Replace API URL in all files
+    find /usr/share/nginx/html -name "*.js" -o -name "*.html" | while read file; do
+        sed -i 's|http://localhost:8000|http://dashboard-dev.aksa.ai|g' "$file"
+    done
+    
+    echo "Dashboard setup complete"
+    nginx -g "daemon off;"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-dashboard-simple
+  namespace: saleor-dev
+  labels:
+    app: saleor-dashboard-simple
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: saleor-dashboard-simple
+  template:
+    metadata:
+      labels:
+        app: saleor-dashboard-simple
+    spec:
+      containers:
+      - name: dashboard
+        image: ghcr.io/saleor/saleor-dashboard:latest
+        command: ['/bin/sh', '/config/startup.sh']
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "100m"
+      volumes:
+      - name: config
+        configMap:
+          name: dashboard-simple-config
+          defaultMode: 0755
+      - name: nginx-config
+        configMap:
+          name: dashboard-simple-config
+          items:
+          - key: nginx.conf
+            path: default.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-dashboard-simple
+  namespace: saleor-dev
+spec:
+  selector:
+    app: saleor-dashboard-simple
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

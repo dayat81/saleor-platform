@@ -1,0 +1,184 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-startup-script-v2
+  namespace: saleor-dev
+data:
+  startup.sh: |
+    #!/bin/sh
+    
+    # API URL to replace localhost with
+    API_URL="${API_URI:-http://dashboard-dev.aksa.ai/graphql/}"
+    
+    echo "Starting dashboard with API URL: $API_URL"
+    
+    # Replace localhost in index.html with the actual API URL
+    if [ -f /usr/share/nginx/html/dashboard/index.html ]; then
+        echo "Original content:"
+        grep -o "API_URL.*," /usr/share/nginx/html/dashboard/index.html | head -1
+        
+        # Use a more specific sed command for minified HTML
+        sed -i 's|API_URL: "http://localhost:8000/graphql/"|API_URL: "http://dashboard-dev.aksa.ai/graphql/"|g' /usr/share/nginx/html/dashboard/index.html
+        
+        echo "After replacement:"
+        grep -o "API_URL.*," /usr/share/nginx/html/dashboard/index.html | head -1
+        
+        # Verify the replacement worked
+        if grep -q "dashboard-dev.aksa.ai" /usr/share/nginx/html/dashboard/index.html; then
+            echo "✅ API URL replacement successful"
+        else
+            echo "❌ API URL replacement failed"
+        fi
+    else
+        echo "❌ index.html not found"
+        ls -la /usr/share/nginx/html/
+    fi
+    
+    # Replace in any JavaScript files that might contain localhost
+    find /usr/share/nginx/html -name "*.js" -exec sed -i "s|http://localhost:8000|http://dashboard-dev.aksa.ai|g" {} \;
+    
+    # Start nginx
+    exec nginx -g "daemon off;"
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+        
+        # Add CORS headers for all responses
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+        
+        # Handle dashboard path
+        location /dashboard/ {
+            alias /usr/share/nginx/html/dashboard/;
+            try_files $uri $uri/ /dashboard/index.html;
+        }
+        
+        # Handle root path - redirect to dashboard
+        location = / {
+            return 301 /dashboard/;
+        }
+        
+        # Handle preflight requests
+        location / {
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Allow-Origin' '*';
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE';
+                add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+                add_header 'Access-Control-Max-Age' 1728000;
+                add_header 'Content-Type' 'text/plain; charset=utf-8';
+                add_header 'Content-Length' 0;
+                return 204;
+            }
+            
+            try_files $uri $uri/ =404;
+        }
+        
+        # Handle static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            add_header 'Access-Control-Allow-Origin' '*' always;
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-dashboard-cors-fixed
+  namespace: saleor-dev
+  labels:
+    app: saleor-dashboard-cors-fixed
+    environment: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: saleor-dashboard-cors-fixed
+  template:
+    metadata:
+      labels:
+        app: saleor-dashboard-cors-fixed
+        environment: dev
+    spec:
+      initContainers:
+      - name: copy-dashboard
+        image: ghcr.io/saleor/saleor-dashboard:latest
+        command: ['cp', '-r', '/app/.', '/shared/']
+        volumeMounts:
+        - name: dashboard-files
+          mountPath: /shared
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "50m"
+      containers:
+      - name: saleor-dashboard
+        image: nginx:alpine
+        command: ['/bin/sh', '/scripts/startup.sh']
+        ports:
+        - containerPort: 80
+        env:
+        - name: API_URI
+          value: "http://dashboard-dev.aksa.ai/graphql/"
+        volumeMounts:
+        - name: dashboard-files
+          mountPath: /usr/share/nginx/html
+        - name: startup-script
+          mountPath: /scripts
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /dashboard/
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /dashboard/
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: dashboard-files
+        emptyDir: {}
+      - name: startup-script
+        configMap:
+          name: dashboard-startup-script-v2
+          defaultMode: 0755
+      - name: nginx-config
+        configMap:
+          name: dashboard-startup-script-v2
+          items:
+          - key: nginx.conf
+            path: default.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-dashboard-cors-fixed
+  namespace: saleor-dev
+  labels:
+    app: saleor-dashboard-cors-fixed
+spec:
+  selector:
+    app: saleor-dashboard-cors-fixed
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP

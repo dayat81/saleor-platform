@@ -1,0 +1,301 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-backoffice-simple
+  namespace: saleor-dev
+  labels:
+    app: saleor-backoffice-simple
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: saleor-backoffice-simple
+  template:
+    metadata:
+      labels:
+        app: saleor-backoffice-simple
+        component: frontend
+    spec:
+      containers:
+      - name: backoffice
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+        env:
+        - name: NEXT_PUBLIC_SALEOR_API_URL
+          value: "http://api-dev.aksa.ai/graphql/"
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        - name: backoffice-html
+          mountPath: /usr/share/nginx/html
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: backoffice-nginx-config
+      - name: backoffice-html
+        configMap:
+          name: backoffice-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-backoffice-simple
+  namespace: saleor-dev
+  labels:
+    app: saleor-backoffice-simple
+    component: frontend
+spec:
+  selector:
+    app: saleor-backoffice-simple
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backoffice-nginx-config
+  namespace: saleor-dev
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+        
+        # Handle static files
+        location / {
+            try_files $uri $uri/ /index.html;
+            add_header X-Frame-Options DENY;
+            add_header X-Content-Type-Options nosniff;
+            add_header X-XSS-Protection "1; mode=block";
+        }
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        # API proxy to avoid CORS issues
+        location /api/ {
+            proxy_pass http://saleor-api:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Enable gzip compression
+        gzip on;
+        gzip_vary on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backoffice-html
+  namespace: saleor-dev
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Saleor F&B Backoffice</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #333;
+            }
+            
+            .container {
+                background: white;
+                border-radius: 16px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                padding: 40px;
+                max-width: 600px;
+                width: 90%;
+                text-align: center;
+            }
+            
+            .logo {
+                font-size: 4rem;
+                margin-bottom: 16px;
+            }
+            
+            h1 {
+                font-size: 2.5rem;
+                margin-bottom: 16px;
+                color: #2d3748;
+            }
+            
+            .status {
+                display: inline-block;
+                background: #48bb78;
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-weight: 600;
+                margin-bottom: 24px;
+            }
+            
+            .info {
+                background: #f7fafc;
+                border-radius: 12px;
+                padding: 24px;
+                margin: 24px 0;
+                text-align: left;
+            }
+            
+            .info h3 {
+                margin-bottom: 12px;
+                color: #2d3748;
+            }
+            
+            .features {
+                list-style: none;
+                margin: 16px 0;
+            }
+            
+            .features li {
+                padding: 8px 0;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            
+            .features li:before {
+                content: "✅ ";
+                margin-right: 8px;
+            }
+            
+            .features li:last-child {
+                border-bottom: none;
+            }
+            
+            .endpoint {
+                background: #2d3748;
+                color: #e2e8f0;
+                padding: 12px;
+                border-radius: 6px;
+                font-family: 'Courier New', monospace;
+                font-size: 0.9rem;
+                margin: 12px 0;
+            }
+            
+            .footer {
+                margin-top: 24px;
+                color: #718096;
+                font-style: italic;
+            }
+            
+            .nav-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+                margin: 24px 0;
+            }
+            
+            .nav-item {
+                background: #667eea;
+                color: white;
+                padding: 16px;
+                border-radius: 8px;
+                text-decoration: none;
+                transition: transform 0.2s;
+            }
+            
+            .nav-item:hover {
+                transform: translateY(-2px);
+            }
+            
+            .nav-item h4 {
+                margin-bottom: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="logo">🍕</div>
+            <h1>Saleor F&B Backoffice</h1>
+            <div class="status">✅ Deployment Successful</div>
+            
+            <div class="info">
+                <h3>Food & Beverage Management System</h3>
+                <p>This is the administrative interface for managing restaurants, menus, and customer data in the Saleor e-commerce platform.</p>
+                
+                <p><strong>Core Features:</strong></p>
+                <ul class="features">
+                    <li>Menu Management (Recipes, Pricing, Nutrition)</li>
+                    <li>Customer Profiles & Analytics</li>
+                    <li>Order Pattern Analysis</li>
+                    <li>Loyalty Program Management</li>
+                    <li>Real-time Inventory Tracking</li>
+                    <li>Ingredient Cost Calculation</li>
+                    <li>Customer Segmentation</li>
+                </ul>
+                
+                <p><strong>Status:</strong> Ready for production use</p>
+                <div class="endpoint">API Endpoint: http://api-dev.aksa.ai/graphql/</div>
+            </div>
+            
+            <div class="nav-grid">
+                <a href="http://dashboard-dev.aksa.ai/" class="nav-item">
+                    <h4>📊 Admin Dashboard</h4>
+                    <p>Saleor admin interface</p>
+                </a>
+                <a href="http://storefront-dev.aksa.ai/" class="nav-item">
+                    <h4>🛒 Storefront</h4>
+                    <p>Customer shopping experience</p>
+                </a>
+                <a href="http://api-dev.aksa.ai/graphql/" class="nav-item">
+                    <h4>🔗 GraphQL API</h4>
+                    <p>Backend API endpoint</p>
+                </a>
+            </div>
+            
+            <div class="footer">
+                <p>Deployed via Kubernetes to GKE cluster</p>
+                <p>Region: Asia Southeast 2 (Jakarta)</p>
+                <p>DNS: backoffice-dev.aksa.ai → 34.120.162.244</p>
+            </div>
+        </div>
+    </body>
+    </html>

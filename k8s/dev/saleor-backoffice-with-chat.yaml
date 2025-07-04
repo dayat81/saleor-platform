@@ -1,0 +1,620 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saleor-backoffice-with-chat
+  namespace: saleor-dev
+  labels:
+    app: saleor-backoffice-with-chat
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: saleor-backoffice-with-chat
+  template:
+    metadata:
+      labels:
+        app: saleor-backoffice-with-chat
+        component: frontend
+    spec:
+      containers:
+      - name: backoffice
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+        env:
+        - name: NEXT_PUBLIC_SALEOR_API_URL
+          value: "http://api-dev.aksa.ai/graphql/"
+        - name: NEXT_PUBLIC_CHAT_SERVICE_URL
+          value: "http://backoffice-dev.aksa.ai"
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        - name: backoffice-static
+          mountPath: /usr/share/nginx/html
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: backoffice-chat-nginx-config
+      - name: backoffice-static
+        emptyDir: {}
+      initContainers:
+      - name: build-backoffice
+        image: node:18-alpine
+        workingDir: /build
+        env:
+        - name: NEXT_PUBLIC_SALEOR_API_URL
+          value: "http://api-dev.aksa.ai/graphql/"
+        - name: NEXT_PUBLIC_CHAT_SERVICE_URL
+          value: "http://backoffice-dev.aksa.ai"
+        - name: NODE_ENV
+          value: "production"
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            echo "🍕 Building F&B Backoffice with Chat Widget..."
+            
+            # Create a comprehensive backoffice with authentication and chat
+            cat > index.html << 'EOF'
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Saleor F&B Backoffice with AI Chat</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        min-height: 100vh;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .container {
+                        background: white;
+                        border-radius: 16px;
+                        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                        padding: 40px;
+                        max-width: 500px;
+                        width: 90%;
+                    }
+                    .logo { text-align: center; font-size: 4rem; margin-bottom: 16px; }
+                    h1 { text-align: center; margin-bottom: 24px; color: #2d3748; }
+                    .form-group { margin-bottom: 20px; }
+                    label { display: block; margin-bottom: 8px; font-weight: 600; color: #374151; }
+                    input {
+                        width: 100%;
+                        padding: 12px 16px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        transition: border-color 0.2s;
+                    }
+                    input:focus {
+                        outline: none;
+                        border-color: #667eea;
+                    }
+                    .btn {
+                        width: 100%;
+                        padding: 12px;
+                        background: #667eea;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    }
+                    .btn:hover { background: #5a6fd8; }
+                    .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+                    .demo-creds {
+                        margin-top: 24px;
+                        padding: 16px;
+                        background: #f3f4f6;
+                        border-radius: 8px;
+                        text-align: center;
+                        font-size: 14px;
+                    }
+                    .error {
+                        color: #dc2626;
+                        font-size: 14px;
+                        margin-top: 8px;
+                        display: none;
+                    }
+                    .dashboard {
+                        display: none;
+                        text-align: center;
+                    }
+                    .nav-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 16px;
+                        margin: 24px 0;
+                    }
+                    .nav-item {
+                        background: #667eea;
+                        color: white;
+                        padding: 20px;
+                        border-radius: 8px;
+                        text-decoration: none;
+                        transition: transform 0.2s;
+                        text-align: center;
+                    }
+                    .nav-item:hover { transform: translateY(-2px); }
+                    .logout-btn {
+                        background: #dc2626;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        margin-top: 20px;
+                    }
+                    
+                    /* Chat Widget Styles */
+                    .chat-widget {
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        z-index: 1000;
+                    }
+                    .chat-button {
+                        background: #667eea;
+                        color: white;
+                        border: none;
+                        border-radius: 50%;
+                        width: 60px;
+                        height: 60px;
+                        font-size: 24px;
+                        cursor: pointer;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        transition: all 0.3s;
+                    }
+                    .chat-button:hover {
+                        background: #5a6fd8;
+                        transform: scale(1.1);
+                    }
+                    .chat-window {
+                        position: absolute;
+                        bottom: 80px;
+                        right: 0;
+                        width: 350px;
+                        height: 450px;
+                        background: white;
+                        border-radius: 12px;
+                        box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+                        display: none;
+                        flex-direction: column;
+                    }
+                    .chat-header {
+                        background: #667eea;
+                        color: white;
+                        padding: 15px;
+                        border-radius: 12px 12px 0 0;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .chat-messages {
+                        flex: 1;
+                        padding: 15px;
+                        overflow-y: auto;
+                        max-height: 300px;
+                    }
+                    .message {
+                        margin-bottom: 10px;
+                        padding: 8px 12px;
+                        border-radius: 12px;
+                        max-width: 80%;
+                    }
+                    .message.user {
+                        background: #667eea;
+                        color: white;
+                        margin-left: auto;
+                    }
+                    .message.assistant {
+                        background: #f3f4f6;
+                        color: #374151;
+                    }
+                    .chat-input {
+                        padding: 15px;
+                        border-top: 1px solid #e5e7eb;
+                        display: flex;
+                        gap: 10px;
+                    }
+                    .chat-input input {
+                        flex: 1;
+                        padding: 8px 12px;
+                        border: 1px solid #e5e7eb;
+                        border-radius: 6px;
+                        font-size: 14px;
+                    }
+                    .chat-input button {
+                        padding: 8px 16px;
+                        background: #667eea;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    }
+                    .chat-input button:hover {
+                        background: #5a6fd8;
+                    }
+                    .chat-input button:disabled {
+                        background: #9ca3af;
+                        cursor: not-allowed;
+                    }
+                    .typing {
+                        font-style: italic;
+                        color: #6b7280;
+                        font-size: 12px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div id="login-form">
+                        <div class="logo">🍕</div>
+                        <h1>F&B Backoffice with AI Chat</h1>
+                        
+                        <form id="loginForm">
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" id="email" value="admin@aksa.ai" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="password">Password</label>
+                                <input type="password" id="password" value="admin123" required>
+                            </div>
+                            
+                            <button type="submit" class="btn" id="loginBtn">Sign In</button>
+                            <div class="error" id="error"></div>
+                        </form>
+                        
+                        <div class="demo-creds">
+                            <strong>Demo Credentials:</strong><br>
+                            admin@aksa.ai / admin123
+                        </div>
+                    </div>
+                    
+                    <div id="dashboard" class="dashboard">
+                        <div class="logo">🍕</div>
+                        <h1>F&B Backoffice Dashboard with AI</h1>
+                        <p>Welcome to the Food & Beverage Management System</p>
+                        
+                        <div class="nav-grid">
+                            <a href="http://dashboard-dev.aksa.ai/" class="nav-item">
+                                <h3>📊 Admin Dashboard</h3>
+                                <p>Saleor admin interface</p>
+                            </a>
+                            <a href="http://storefront-dev.aksa.ai/" class="nav-item">
+                                <h3>🛒 Storefront</h3>
+                                <p>Customer experience</p>
+                            </a>
+                            <a href="http://api-dev.aksa.ai/graphql/" class="nav-item">
+                                <h3>🔗 GraphQL API</h3>
+                                <p>Backend API</p>
+                            </a>
+                        </div>
+                        
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3>🤖 AI Chat Assistant</h3>
+                            <p>Click the chat button in the bottom-right corner to interact with the AI assistant for backoffice operations!</p>
+                            <p><small>Try: "Show me today's orders" or "What are the best selling items?"</small></p>
+                        </div>
+                        
+                        <button class="logout-btn" onclick="logout()">Logout</button>
+                    </div>
+                </div>
+                
+                <!-- Chat Widget -->
+                <div class="chat-widget">
+                    <button class="chat-button" onclick="toggleChat()">💬</button>
+                    
+                    <div class="chat-window" id="chatWindow">
+                        <div class="chat-header">
+                            <div>
+                                <strong>🤖 AI Assistant</strong>
+                                <div style="font-size: 12px; opacity: 0.9;">Backoffice Helper</div>
+                            </div>
+                            <button onclick="toggleChat()" style="background: none; border: none; color: white; cursor: pointer;">✕</button>
+                        </div>
+                        
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="message assistant">
+                                👋 Hello! I'm your AI assistant for backoffice operations. I can help you with orders, inventory, analytics, and more. What would you like to know?
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input">
+                            <input type="text" id="chatInput" placeholder="Ask about orders, analytics, etc..." onkeypress="handleKeyPress(event)">
+                            <button onclick="sendMessage()" id="sendBtn">Send</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <script>
+                    const API_URL = 'http://api-dev.aksa.ai/graphql/';
+                    const CHAT_API_URL = 'http://backoffice-dev.aksa.ai/api/chat';
+                    let chatSessionId = null;
+                    
+                    // Check if already logged in
+                    if (localStorage.getItem('auth_token')) {
+                        showDashboard();
+                    }
+                    
+                    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        
+                        const email = document.getElementById('email').value;
+                        const password = document.getElementById('password').value;
+                        const btn = document.getElementById('loginBtn');
+                        const error = document.getElementById('error');
+                        
+                        btn.disabled = true;
+                        btn.textContent = 'Signing in...';
+                        error.style.display = 'none';
+                        
+                        try {
+                            const response = await fetch(API_URL, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    query: `
+                                        mutation TokenAuth($email: String!, $password: String!) {
+                                            tokenCreate(email: $email, password: $password) {
+                                                token
+                                                user {
+                                                    id
+                                                    email
+                                                    firstName
+                                                    lastName
+                                                    isStaff
+                                                }
+                                                errors {
+                                                    field
+                                                    message
+                                                }
+                                            }
+                                        }
+                                    `,
+                                    variables: { email, password }
+                                })
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.data.tokenCreate.errors.length > 0) {
+                                error.textContent = data.data.tokenCreate.errors[0].message;
+                                error.style.display = 'block';
+                            } else if (data.data.tokenCreate.token) {
+                                localStorage.setItem('auth_token', data.data.tokenCreate.token);
+                                localStorage.setItem('user', JSON.stringify(data.data.tokenCreate.user));
+                                showDashboard();
+                            }
+                        } catch (err) {
+                            error.textContent = 'Login failed. Please try again.';
+                            error.style.display = 'block';
+                        }
+                        
+                        btn.disabled = false;
+                        btn.textContent = 'Sign In';
+                    });
+                    
+                    function showDashboard() {
+                        document.getElementById('login-form').style.display = 'none';
+                        document.getElementById('dashboard').style.display = 'block';
+                        
+                        // Initialize chat session when dashboard is shown
+                        initChatSession();
+                    }
+                    
+                    function logout() {
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('user');
+                        document.getElementById('login-form').style.display = 'block';
+                        document.getElementById('dashboard').style.display = 'none';
+                    }
+                    
+                    // Chat functionality
+                    function toggleChat() {
+                        const chatWindow = document.getElementById('chatWindow');
+                        if (chatWindow.style.display === 'flex') {
+                            chatWindow.style.display = 'none';
+                        } else {
+                            chatWindow.style.display = 'flex';
+                            if (!chatSessionId) {
+                                initChatSession();
+                            }
+                        }
+                    }
+                    
+                    async function initChatSession() {
+                        try {
+                            const response = await fetch(`${CHAT_API_URL}/session/start`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({})
+                            });
+                            
+                            const data = await response.json();
+                            if (data.success) {
+                                chatSessionId = data.data.sessionId;
+                            }
+                        } catch (error) {
+                            console.error('Chat session init error:', error);
+                        }
+                    }
+                    
+                    async function sendMessage() {
+                        const input = document.getElementById('chatInput');
+                        const message = input.value.trim();
+                        
+                        if (!message) return;
+                        
+                        // Add user message to chat
+                        addMessageToChat(message, 'user');
+                        input.value = '';
+                        
+                        // Show typing indicator
+                        addTypingIndicator();
+                        
+                        try {
+                            const response = await fetch(`${CHAT_API_URL}/message`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    message: message,
+                                    sessionId: chatSessionId
+                                })
+                            });
+                            
+                            const data = await response.json();
+                            
+                            // Remove typing indicator
+                            removeTypingIndicator();
+                            
+                            if (data.success) {
+                                addMessageToChat(data.data.message, 'assistant');
+                                chatSessionId = data.data.sessionId;
+                            } else {
+                                addMessageToChat('Sorry, I had trouble processing your request. Please try again.', 'assistant');
+                            }
+                        } catch (error) {
+                            removeTypingIndicator();
+                            addMessageToChat('Connection error. Please check your network and try again.', 'assistant');
+                            console.error('Chat error:', error);
+                        }
+                    }
+                    
+                    function addMessageToChat(message, role) {
+                        const chatMessages = document.getElementById('chatMessages');
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `message ${role}`;
+                        messageDiv.textContent = message;
+                        chatMessages.appendChild(messageDiv);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                    
+                    function addTypingIndicator() {
+                        const chatMessages = document.getElementById('chatMessages');
+                        const typingDiv = document.createElement('div');
+                        typingDiv.className = 'message assistant typing';
+                        typingDiv.id = 'typing-indicator';
+                        typingDiv.textContent = 'AI is thinking...';
+                        chatMessages.appendChild(typingDiv);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                    
+                    function removeTypingIndicator() {
+                        const typing = document.getElementById('typing-indicator');
+                        if (typing) {
+                            typing.remove();
+                        }
+                    }
+                    
+                    function handleKeyPress(event) {
+                        if (event.key === 'Enter') {
+                            sendMessage();
+                        }
+                    }
+                </script>
+            </body>
+            </html>
+            EOF
+            
+            # Copy to nginx directory
+            cp index.html /static/
+            
+            echo "✅ Backoffice with AI chat built successfully!"
+            ls -la /static/
+        volumeMounts:
+        - name: backoffice-static
+          mountPath: /static
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saleor-backoffice-with-chat
+  namespace: saleor-dev
+  labels:
+    app: saleor-backoffice-with-chat
+    component: frontend
+spec:
+  selector:
+    app: saleor-backoffice-with-chat
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backoffice-chat-nginx-config
+  namespace: saleor-dev
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+        
+        location / {
+            try_files $uri $uri/ /index.html;
+            add_header X-Frame-Options DENY;
+            add_header X-Content-Type-Options nosniff;
+            add_header X-XSS-Protection "1; mode=block";
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+        
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        gzip on;
+        gzip_vary on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
+    }

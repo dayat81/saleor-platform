@@ -84,8 +84,8 @@ export const authOptions: NextAuthOptions = {
               variables: {
                 input: {
                   email: user.email,
-                  firstName: profile?.given_name || user.name?.split(' ')[0] || '',
-                  lastName: profile?.family_name || user.name?.split(' ').slice(1).join(' ') || '',
+                  firstName: (profile as any)?.given_name || user.name?.split(' ')[0] || '',
+                  lastName: (profile as any)?.family_name || user.name?.split(' ').slice(1).join(' ') || '',
                   redirectUrl: `${process.env.NEXTAUTH_URL}/auth/verify-email`,
                 },
               },
@@ -109,22 +109,21 @@ export const authOptions: NextAuthOptions = {
 
     async jwt({ token, user, account }) {
       if (account && user) {
-        token.accessToken = user.accessToken;
-        token.refreshToken = user.refreshToken;
+        token.accessToken = (user as any).accessToken;
+        token.refreshToken = (user as any).refreshToken;
       }
       return token;
     },
 
     async session({ session, token }) {
-      session.accessToken = token.accessToken;
-      session.refreshToken = token.refreshToken;
+      (session as any).accessToken = token.accessToken;
+      (session as any).refreshToken = token.refreshToken;
       return session;
     },
   },
 
   pages: {
     signIn: '/auth/login',
-    signUp: '/auth/register',
     error: '/auth/error',
   },
 
