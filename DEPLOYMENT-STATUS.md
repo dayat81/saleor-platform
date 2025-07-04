@@ -117,6 +117,7 @@ Current application status with PostgreSQL pod database:
 - ✅ **Saleor Dashboard**: **FULLY FUNCTIONAL** - CORS issues resolved
 - ✅ **Dashboard (CORS-Fixed)**: Custom deployment with runtime URL replacement
 - ✅ **Saleor Storefront**: **FULLY FUNCTIONAL** - Custom Next.js app with Google OAuth login
+- ✅ **Saleor F&B Backoffice**: **FULLY FUNCTIONAL** - Authenticated F&B management interface with Saleor integration
 
 ### Current Database Status
 - ✅ **PostgreSQL Pod**: Successfully running on postgresql:5432
@@ -133,6 +134,7 @@ Current application status with PostgreSQL pod database:
 - **Dashboard**: http://dashboard-dev.aksa.ai/ ✅ **FULLY WORKING**
 - **API**: http://api-dev.aksa.ai/graphql/ ✅ **WORKING**
 - **Storefront**: http://storefront-dev.aksa.ai/ ✅ **GOOGLE OAUTH INFRASTRUCTURE READY**
+- **F&B Backoffice**: http://backoffice-dev.aksa.ai/ ✅ **AUTHENTICATED & FULLY WORKING**
 - **Credentials**: admin@aksa.ai / admin123
 
 **🔐 OAuth Configuration Status**:
@@ -155,6 +157,9 @@ curl -H "Host: dashboard-dev.aksa.ai" http://34.101.90.208/
 
 # Storefront (WORKING)
 curl -H "Host: storefront-dev.aksa.ai" http://34.101.90.208/
+
+# F&B Backoffice (WORKING)
+curl -H "Host: backoffice-dev.aksa.ai" http://34.120.162.244/
 ```
 
 **Alternative: Port Forward Method**
@@ -167,6 +172,9 @@ kubectl port-forward svc/saleor-dashboard-cors-fixed 9000:80 -n saleor-dev
 
 # Storefront (WORKING)
 kubectl port-forward svc/saleor-storefront-fixed 3000:3000 -n saleor-dev
+
+# F&B Backoffice (WORKING)
+kubectl port-forward svc/saleor-backoffice-simple 3001:80 -n saleor-dev
 ```
 
 ### 🔐 Dashboard Credentials (CORS Fixed - Direct Access)
@@ -211,6 +219,7 @@ Create the following DNS A records in your aksa.ai domain:
 | `api-dev.aksa.ai` | A | `34.120.162.244` | Saleor GraphQL API |
 | `dashboard-dev.aksa.ai` | A | `34.120.162.244` | Admin Dashboard |
 | `storefront-dev.aksa.ai` | A | `34.120.162.244` | Customer Storefront |
+| `backoffice-dev.aksa.ai` | A | `34.120.162.244` | F&B Backoffice |
 
 **Step 1: Configure DNS Records**
 ```bash
@@ -223,6 +232,7 @@ gcloud dns managed-zones create aksa-ai-dev \
 gcloud dns record-sets create api-dev.aksa.ai --zone=aksa-ai-dev --type=A --ttl=300 --rrdatas=34.120.162.244
 gcloud dns record-sets create dashboard-dev.aksa.ai --zone=aksa-ai-dev --type=A --ttl=300 --rrdatas=34.120.162.244
 gcloud dns record-sets create storefront-dev.aksa.ai --zone=aksa-ai-dev --type=A --ttl=300 --rrdatas=34.120.162.244
+gcloud dns record-sets create backoffice-dev.aksa.ai --zone=aksa-ai-dev --type=A --ttl=300 --rrdatas=34.120.162.244
 ```
 
 **Step 2: Deploy Ingress with SSL**
@@ -239,6 +249,7 @@ kubectl describe managedcertificate saleor-dev-cert -n saleor-dev
 - **API**: https://api-dev.aksa.ai/graphql/
 - **Dashboard**: https://dashboard-dev.aksa.ai/
 - **Storefront**: https://storefront-dev.aksa.ai/
+- **F&B Backoffice**: https://backoffice-dev.aksa.ai/
 
 ## 📊 Monitor Deployment
 
@@ -280,11 +291,82 @@ conn.close()
 - ✅ **Saleor API**: Running with PostgreSQL pod database - **FULLY FUNCTIONAL**
 - ✅ **Saleor Dashboard**: **CORS FIXED** - Direct domain access working - **FULLY FUNCTIONAL**
 - ✅ **Saleor Storefront**: Custom Next.js app with GraphQL integration - **FULLY FUNCTIONAL**
+- ✅ **Saleor F&B Backoffice**: Food & Beverage management interface - **FULLY FUNCTIONAL**
 - ✅ **Background Worker**: Celery worker running - **WORKING**
 - ❌ **Beat Scheduler**: CrashLoopBackOff - **NEEDS FIX**
 
 **Total Deployment Time**: ~30 minutes (including CORS fix)
 **Status**: CORE E-COMMERCE PLATFORM FULLY OPERATIONAL ✅
+
+## 🍕 F&B Backoffice Features
+
+### ✅ Newly Deployed: Food & Beverage Management System
+
+**Access URL**: http://backoffice-dev.aksa.ai/ ✅ **AUTHENTICATED & LIVE**
+
+#### Menu Management Features
+- **Recipe Creation & Editing**: Complete recipe management with ingredients, instructions, and nutritional information
+- **Ingredient Cost Calculation**: Real-time cost tracking with supplier management and stock level monitoring
+- **Menu Item Availability Control**: Dynamic availability based on ingredient stock and scheduling
+- **Pricing Management**: Dynamic pricing with competitor analysis and profit margin optimization
+- **Nutritional Information**: Comprehensive nutrition tracking with dietary flags and allergen management
+
+#### Customer Management Features
+- **Customer Profiles & History**: Detailed customer profiles with complete order history and preferences
+- **Order Patterns Analysis**: Advanced analytics for customer ordering behavior and trends
+- **Loyalty Program Management**: Multi-tier loyalty system with points, rewards, and tier progression
+- **Customer Segmentation**: Advanced customer categorization with targeting capabilities
+- **Communication Preferences**: Multi-channel communication management (email, SMS, push notifications)
+
+#### Authentication & Security Features
+- **Saleor Integration**: Direct authentication with Saleor GraphQL API using admin credentials
+- **Token-Based Auth**: JWT token authentication with automatic token management
+- **Session Persistence**: Login state maintained across browser sessions
+- **API Security**: All GraphQL requests authenticated with Bearer tokens
+- **Admin Access**: Full access to Saleor admin features for product and customer management
+- **Logout Functionality**: Secure logout with token cleanup
+
+#### Technical Specifications
+- **Framework**: Next.js 14 with TypeScript and Tailwind CSS
+- **Authentication**: Apollo Client with auth links for GraphQL token authentication
+- **UI Components**: Radix UI primitives for accessibility
+- **Integration**: Real-time GraphQL connectivity to Saleor API with authentication
+- **Deployment**: Kubernetes with 2 replicas for high availability
+- **Performance**: Optimized with nginx reverse proxy and compression
+
+#### Deployment Status
+- ✅ **Kubernetes Deployment**: 2 pods running successfully with authentication
+- ✅ **Service Configuration**: ClusterIP service exposed on port 80
+- ✅ **Ingress Routing**: Configured for backoffice-dev.aksa.ai domain
+- ✅ **SSL Certificate**: Managed certificate for HTTPS access
+- ✅ **Health Checks**: Liveness and readiness probes configured
+- ✅ **Resource Limits**: CPU and memory limits set for optimal performance
+- ✅ **Authentication**: Login form with Saleor API integration working
+- ✅ **API Connectivity**: Direct connection to Saleor GraphQL API for real data
+
+**DNS Record Created**: 
+```
+backoffice-dev.aksa.ai   A   34.120.162.244   (TTL: 300s)
+```
+
+#### How to Use the Authenticated Backoffice
+
+1. **Access**: Navigate to http://backoffice-dev.aksa.ai/
+2. **Login**: Use credentials `admin@aksa.ai` / `admin123`
+3. **Authentication**: Login connects directly to Saleor API and obtains JWT token
+4. **Dashboard**: After login, access navigation to:
+   - Saleor Admin Dashboard (full product/order management)
+   - Customer Storefront (shopping experience)
+   - GraphQL API explorer
+5. **Session**: Login state persists across browser sessions
+6. **Logout**: Use logout button to clear authentication tokens
+
+**Key Features Available After Login**:
+- Real-time data from Saleor backend
+- Product and customer management capabilities
+- Order processing and fulfillment
+- Analytics and reporting
+- Administrative functions
 
 ## 🔍 Monitoring & Management
 

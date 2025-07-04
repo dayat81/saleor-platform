@@ -41,7 +41,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: saleor-dashboard-cors-fixed
+            name: saleor-dashboard-simple
             port:
               number: 80
   - host: storefront-dev.aksa.ai
@@ -75,6 +75,37 @@ spec:
             name: saleor-storefront-fixed
             port:
               number: 3000
+  - host: backoffice-dev.aksa.ai
+    http:
+      paths:
+      - path: /api/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-api
+            port:
+              number: 8000
+      - path: /graphql/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-api
+            port:
+              number: 8000
+      - path: /health/
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-api
+            port:
+              number: 8000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: saleor-backoffice-auth
+            port:
+              number: 80
 ---
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
@@ -86,6 +117,7 @@ spec:
     - api-dev.aksa.ai
     - dashboard-dev.aksa.ai
     - storefront-dev.aksa.ai
+    - backoffice-dev.aksa.ai
 ---
 apiVersion: v1
 kind: Service
