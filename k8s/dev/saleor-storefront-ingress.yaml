@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: saleor-storefront-ingress
+  namespace: saleor-dev
+  labels:
+    app: saleor-storefront
+    environment: dev
+  annotations:
+    kubernetes.io/ingress.class: gce
+    kubernetes.io/ingress.global-static-ip-name: saleor-storefront-dev-lb-ip
+    kubernetes.io/ingress.allow-http: "true"
+    ingress.gcp.kubernetes.io/force-ssl-redirect: "true"
+    networking.gke.io/managed-certificates: saleor-storefront-ssl-cert
+    cloud.google.com/backend-config: '{"default": "saleor-storefront-backend-config"}'
+spec:
+  defaultBackend:
+    service:
+      name: saleor-storefront
+      port:
+        number: 80
+  rules:
+  - host: storefront-dev.aksa.ai
+    http:
+      paths:
+      - backend:
+          service:
+            name: saleor-storefront
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: saleor-storefront-ssl-cert
+  namespace: saleor-dev
+spec:
+  domains:
+  - storefront-dev.aksa.ai
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: saleor-storefront-backend-config
+  namespace: saleor-dev
+spec:
+  timeoutSec: 86400
+  connectionDraining:
+    drainingTimeoutSec: 60
+  healthCheck:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /
+    port: 80
