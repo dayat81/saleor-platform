@@ -1,0 +1,229 @@
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  schedule:
+    # Run security scan daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  # Scan dependencies for vulnerabilities
+  dependency-scan-storefront:
+    name: Dependency Scan - Storefront
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run npm audit
+        working-directory: ./saleor-storefront
+        run: |
+          npm audit --production
+          npm audit --audit-level=moderate
+      
+      - name: Run Snyk scan
+        uses: snyk/actions/node@master
+        with:
+          args: --severity-threshold=high --file=saleor-storefront/package.json
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+  dependency-scan-backoffice:
+    name: Dependency Scan - Backoffice
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run npm audit
+        working-directory: ./saleor-backoffice
+        run: |
+          npm audit --production
+          npm audit --audit-level=moderate
+      
+      - name: Run Snyk scan
+        uses: snyk/actions/node@master
+        with:
+          args: --severity-threshold=high --file=saleor-backoffice/package.json
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+  dependency-scan-chat-service:
+    name: Dependency Scan - Chat Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run npm audit
+        working-directory: ./saleor-chat-service
+        run: |
+          npm audit --production
+          npm audit --audit-level=moderate
+      
+      - name: Run Snyk scan
+        uses: snyk/actions/node@master
+        with:
+          args: --severity-threshold=high --file=saleor-chat-service/package.json
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+  # Scan Docker images for vulnerabilities
+  docker-scan-storefront:
+    name: Docker Image Scan - Storefront
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker image
+        run: docker build -t storefront-scan:latest -f saleor-storefront/Dockerfile.production ./saleor-storefront
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'storefront-scan:latest'
+          format: 'sarif'
+          output: 'trivy-results-storefront.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results-storefront.sarif'
+          category: 'trivy-storefront'
+
+  docker-scan-backoffice:
+    name: Docker Image Scan - Backoffice
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker image
+        run: docker build -t backoffice-scan:latest -f saleor-backoffice/Dockerfile.production ./saleor-backoffice
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'backoffice-scan:latest'
+          format: 'sarif'
+          output: 'trivy-results-backoffice.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results-backoffice.sarif'
+          category: 'trivy-backoffice'
+
+  docker-scan-chat-service:
+    name: Docker Image Scan - Chat Service
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker image
+        run: docker build -t chat-service-scan:latest -f saleor-chat-service/Dockerfile.production ./saleor-chat-service
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'chat-service-scan:latest'
+          format: 'sarif'
+          output: 'trivy-results-chat-service.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results-chat-service.sarif'
+          category: 'trivy-chat-service'
+
+  # Code security analysis
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript', 'typescript']
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # Secret scanning
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  # SAST scanning
+  sast-scan:
+    name: SAST Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+            p/typescript
+            p/javascript
+            p/nodejs
+            p/react

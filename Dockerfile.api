@@ -1,0 +1,2 @@
+FROM ghcr.io/saleor/saleor:3.21
+COPY common.env backend.env /app/

@@ -1,0 +1,337 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  # Lint and test jobs
+  lint-storefront:
+    name: Lint Storefront
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: saleor-storefront/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./saleor-storefront
+        run: npm ci
+      
+      - name: Run linter
+        working-directory: ./saleor-storefront
+        run: npm run lint
+
+  lint-backoffice:
+    name: Lint Backoffice
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: saleor-backoffice/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./saleor-backoffice
+        run: npm ci
+      
+      - name: Run linter
+        working-directory: ./saleor-backoffice
+        run: npm run lint
+
+  lint-chat-service:
+    name: Lint Chat Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: saleor-chat-service/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./saleor-chat-service
+        run: npm ci
+      
+      - name: Run linter
+        working-directory: ./saleor-chat-service
+        run: npm run lint
+
+  test-chat-service:
+    name: Test Chat Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: saleor-chat-service/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./saleor-chat-service
+        run: npm ci
+      
+      - name: Run tests
+        working-directory: ./saleor-chat-service
+        run: npm test
+
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker images
+        run: docker compose build
+      
+      - name: Run backend tests
+        run: docker compose run api pytest
+
+  # Build and push Docker images
+  build-storefront:
+    name: Build Storefront Image
+    runs-on: ubuntu-latest
+    needs: [lint-storefront]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/storefront
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./saleor-storefront
+          file: ./saleor-storefront/Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-backoffice:
+    name: Build Backoffice Image
+    runs-on: ubuntu-latest
+    needs: [lint-backoffice]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backoffice
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./saleor-backoffice
+          file: ./saleor-backoffice/Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-chat-service:
+    name: Build Chat Service Image
+    runs-on: ubuntu-latest
+    needs: [lint-chat-service, test-chat-service]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/chat-service
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./saleor-chat-service
+          file: ./saleor-chat-service/Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to development environment
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [build-storefront, build-backoffice, build-chat-service, test-backend]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: development
+      url: https://dev.saleor.example.com
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_DEV }}" | base64 -d > kubeconfig
+          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
+      
+      - name: Update Kubernetes manifests
+        run: |
+          # Update image tags in Kubernetes manifests
+          export IMAGE_TAG="${{ github.sha }}"
+          
+          # Update storefront deployment
+          kubectl set image deployment/saleor-storefront \
+            storefront=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/storefront:develop-${IMAGE_TAG} \
+            -n saleor-dev
+          
+          # Update backoffice deployment
+          kubectl set image deployment/saleor-backoffice \
+            backoffice=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backoffice:develop-${IMAGE_TAG} \
+            -n saleor-dev
+          
+          # Update chat service deployment
+          kubectl set image deployment/saleor-chat-service \
+            chat-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/chat-service:develop-${IMAGE_TAG} \
+            -n saleor-dev
+      
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/saleor-storefront -n saleor-dev
+          kubectl rollout status deployment/saleor-backoffice -n saleor-dev
+          kubectl rollout status deployment/saleor-chat-service -n saleor-dev
+
+  # Deploy to production environment
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-storefront, build-backoffice, build-chat-service, test-backend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://saleor.example.com
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > kubeconfig
+          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
+      
+      - name: Update Kubernetes manifests
+        run: |
+          # Update image tags in Kubernetes manifests
+          export IMAGE_TAG="${{ github.sha }}"
+          
+          # Update storefront deployment
+          kubectl set image deployment/saleor-storefront \
+            storefront=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/storefront:main-${IMAGE_TAG} \
+            -n saleor-prod
+          
+          # Update backoffice deployment
+          kubectl set image deployment/saleor-backoffice \
+            backoffice=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backoffice:main-${IMAGE_TAG} \
+            -n saleor-prod
+          
+          # Update chat service deployment
+          kubectl set image deployment/saleor-chat-service \
+            chat-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/chat-service:main-${IMAGE_TAG} \
+            -n saleor-prod
+      
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/saleor-storefront -n saleor-prod
+          kubectl rollout status deployment/saleor-backoffice -n saleor-prod
+          kubectl rollout status deployment/saleor-chat-service -n saleor-prod
+      
+      - name: Run smoke tests
+        run: |
+          # Add your smoke test commands here
+          echo "Running smoke tests..."
+          # Example: curl health check endpoints
+          # curl -f https://saleor.example.com/health || exit 1

@@ -1,3 +1,4 @@
 .idea
 saleor-storefront/.next
 saleor-storefront/node_modules
+venv

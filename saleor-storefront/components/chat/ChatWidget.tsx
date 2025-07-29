@@ -25,7 +25,7 @@ export function ChatWidget({
   className,
   position = 'bottom-right',
   theme = 'light',
-  initialMessage = "👋 Halo! Saya kasir F&B produk Anda. Saya bisa membantu dengan pesanan, menu, pembayaran, dan layanan pelanggan. Ada yang bisa saya bantu?"
+  initialMessage = "👋 Halo! Saya asisten AI backoffice Anda. Saya bisa membantu dengan pesanan, inventori, analitik, manajemen staff, dan lainnya. Ada yang bisa saya bantu?"
 }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState('')
@@ -132,22 +132,22 @@ export function ChatWidget({
   }
 
   const quickActions = [
-    { label: "Tampilkan Menu", action: "show_menu", emoji: "📋", category: "browse" as const },
-    { label: "Item Populer", action: "popular_items", emoji: "⭐", category: "browse" as const },
-    { label: "Proses Pembayaran", action: "process_payment", emoji: "💳", category: "orders" as const },
-    { label: "Status Pesanan", action: "order_status", emoji: "📦", category: "orders" as const },
-    { label: "Bantuan Pelanggan", action: "customer_support", emoji: "👤", category: "account" as const },
-    { label: "Diskon & Promo", action: "promotions", emoji: "🎟️", category: "help" as const },
+    { label: "Pesanan Hari Ini", action: "todays_orders", emoji: "📦", category: "orders" as const },
+    { label: "Status Inventori", action: "inventory_status", emoji: "📋", category: "general" as const },
+    { label: "Analitik Penjualan", action: "sales_analytics", emoji: "📊", category: "general" as const },
+    { label: "Jadwal Staff", action: "staff_schedule", emoji: "👥", category: "general" as const },
+    { label: "Alert Stok Rendah", action: "low_stock", emoji: "⚠️", category: "general" as const },
+    { label: "Laporan Pelanggan", action: "customer_reports", emoji: "👤", category: "account" as const },
   ]
 
   const handleQuickAction = async (action: string) => {
     const actionMessages: Record<string, string> = {
-      show_menu: "Tampilkan menu",
-      popular_items: "Apa item paling populer?",
-      process_payment: "Bantu proses pembayaran",
-      order_status: "Cek status pesanan",
-      customer_support: "Bantuan untuk pelanggan",
-      promotions: "Tampilkan diskon dan promo",
+      todays_orders: "Tampilkan pesanan hari ini",
+      inventory_status: "Bagaimana status inventori saat ini?",
+      sales_analytics: "Tampilkan performa penjualan hari ini",
+      staff_schedule: "Siapa yang bertugas hari ini?",
+      low_stock: "Item apa yang stoknya rendah?",
+      customer_reports: "Tampilkan analitik pelanggan",
     }
     
     const messageText = actionMessages[action] || action
@@ -221,7 +221,7 @@ export function ChatWidget({
                   🍕
                 </div>
                 <div>
-                  <h3 className="font-semibold">Kasir F&B</h3>
+                  <h3 className="font-semibold">Asisten Backoffice</h3>
                   <p className="text-xs opacity-90">
                     {isConnected ? 'Online' : 'Connecting...'}
                   </p>

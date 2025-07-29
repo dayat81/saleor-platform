@@ -1,0 +1,6 @@
+terraform {
+  backend "gcs" {
+    bucket = "saleor-terraform-state-prod"
+    prefix = "terraform/state"
+  }
+}

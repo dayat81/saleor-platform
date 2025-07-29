@@ -1,0 +1,166 @@
+name: Dependency Update
+
+on:
+  schedule:
+    # Run weekly on Monday at 3 AM UTC
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies-storefront:
+    name: Update Dependencies - Storefront
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Update dependencies
+        working-directory: ./saleor-storefront
+        run: |
+          npm update
+          npm audit fix --force || true
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): update storefront dependencies'
+          title: 'chore(deps): update storefront dependencies'
+          body: |
+            ## Automated dependency update
+            
+            This PR updates npm dependencies for the storefront application.
+            
+            ### Changes
+            - Updated npm packages to latest versions
+            - Applied security fixes from npm audit
+            
+            Please review the changes and test thoroughly before merging.
+          branch: deps/storefront-update
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+            storefront
+
+  update-dependencies-backoffice:
+    name: Update Dependencies - Backoffice
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Update dependencies
+        working-directory: ./saleor-backoffice
+        run: |
+          npm update
+          npm audit fix --force || true
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): update backoffice dependencies'
+          title: 'chore(deps): update backoffice dependencies'
+          body: |
+            ## Automated dependency update
+            
+            This PR updates npm dependencies for the backoffice application.
+            
+            ### Changes
+            - Updated npm packages to latest versions
+            - Applied security fixes from npm audit
+            
+            Please review the changes and test thoroughly before merging.
+          branch: deps/backoffice-update
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+            backoffice
+
+  update-dependencies-chat-service:
+    name: Update Dependencies - Chat Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Update dependencies
+        working-directory: ./saleor-chat-service
+        run: |
+          npm update
+          npm audit fix --force || true
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): update chat service dependencies'
+          title: 'chore(deps): update chat service dependencies'
+          body: |
+            ## Automated dependency update
+            
+            This PR updates npm dependencies for the chat service.
+            
+            ### Changes
+            - Updated npm packages to latest versions
+            - Applied security fixes from npm audit
+            
+            Please review the changes and test thoroughly before merging.
+          branch: deps/chat-service-update
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+            chat-service
+
+  update-github-actions:
+    name: Update GitHub Actions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Update GitHub Actions
+        uses: technote-space/create-pr-action@v2
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXECUTE_COMMANDS: |
+            npx -y pin-github-action@latest .github/workflows/*.yml
+          COMMIT_MESSAGE: 'chore(deps): update GitHub Actions'
+          PR_TITLE: 'chore(deps): update GitHub Actions'
+          PR_BODY: |
+            ## Automated GitHub Actions update
+            
+            This PR updates GitHub Actions to their latest versions.
+            
+            ### Security Benefits
+            - Uses specific commit SHAs instead of tags for better security
+            - Ensures we're using the latest security patches
+            
+            Please review the changes before merging.
+          PR_BRANCH_NAME: deps/github-actions-update
+          PR_LABELS: |
+            dependencies
+            automated
+            github-actions
