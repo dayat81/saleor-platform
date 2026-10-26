@@ -22,15 +22,15 @@
     "graphql": "^16.11.0",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.344.0",
-    "next": "14.0.4",
-    "next-auth": "^4.24.11",
+    "next": "^14.2.35",
+    "next-auth": "^4.24.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.59.0",
     "react-hot-toast": "^2.5.2",
     "socket.io-client": "^4.7.5",
     "tailwind-merge": "^2.2.1",
-    "zod": "^3.25.67",
+    "zod": "^4.6.7",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
@@ -41,7 +41,7 @@
     "eslint": "^8.56.0",
     "eslint-config-next": "14.0.4",
     "postcss": "^8.4.32",
-    "tailwindcss": "^3.4.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.3.3"
   }
 }
